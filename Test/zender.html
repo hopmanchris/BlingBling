@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BlingBling Zender</title>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #000; color: white; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            height: 100vh; margin: 0; text-align: center;
+        }
+
+        .logo-container { margin-bottom: 30px; }
+        .logo-container img { max-height: 60px; }
+
+        .status-circle {
+            width: 150px; height: 150px;
+            border-radius: 50%;
+            background: #222;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 30px;
+            border: 5px solid #333;
+            transition: all 0.5s ease;
+        }
+
+        .status-circle.active {
+            border-color: #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4);
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .status-text { font-size: 1.5rem; font-weight: bold; color: #555; }
+        .active .status-text { color: #00ff00; }
+
+        input { 
+            padding: 15px; font-size: 1.2rem; border-radius: 12px; border: 2px solid #333; 
+            width: 80%; max-width: 300px; margin-bottom: 20px; text-align: center;
+            background: #111; color: white;
+        }
+
+        button { 
+            padding: 20px 50px; font-size: 1.3rem; font-weight: bold;
+            background: #ffcc00; color: black; border: none; border-radius: 50px;
+            cursor: pointer; transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button.active { background: #ff3333; color: white; }
+
+        .info { font-size: 0.9rem; margin-top: 40px; opacity: 0.6; padding: 0 30px; }
+    </style>
+</head>
+<body>
+
+    <div class="logo-container">
+        <img src="logo.png" alt="BlingBling">
+    </div>
+
+    <div class="status-circle" id="circle">
+        <div class="status-text" id="statusLabel">OFFLINE</div>
+    </div>
+    
+    <input type="text" id="driverName" placeholder="Voer je naam in..." />
+    
+    <button id="toggleBtn" onclick="toggleTracking()">Start Rit</button>
+
+    <div class="info" id="debug">Vul je naam in en druk op start om de tracking te activeren.</div>
+
+    <script>
+        const ably = new Ably.Realtime('IZkpmw.mB2_5w:PAn16Xo-N-E-P2P3pXitR8Cizp2C76IqD5A_p8_qF2w');
+        const channel = ably.channels.get('tracking');
+        let watchId = null;
+        let wakeLock = null;
+
+        // Functie om het scherm aan te houden
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.log("Wake Lock mislukt:", err);
+            }
+        }
+
+        function toggleTracking() {
+            const btn = document.getElementById('toggleBtn');
+            const circle = document.getElementById('circle');
+            const statusLabel = document.getElementById('statusLabel');
+            const nameInput = document.getElementById('driverName');
+            const debug = document.getElementById('debug');
+
+            if (!nameInput.value) {
+                alert("Vergeet niet je naam in te vullen!");
+                return;
+            }
+
+            if (watchId === null) {
+                // START TRACKING
+                requestWakeLock();
+                
+                watchId = navigator.geolocation.watchPosition(pos => {
+                    const data = {
+                        name: nameInput.value,
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    };
+                    channel.publish('pos', data);
+                    debug.innerText = "Locatie verzonden om: " + new Date().toLocaleTimeString();
+                }, err => {
+                    debug.innerText = "Fout: Locatie toegang geweigerd.";
+                }, { 
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0 
+                });
+
+                // UI Update
+                btn.innerText = "Stop Rit";
+                btn.classList.add('active');
+                circle.classList.add('active');
+                statusLabel.innerText = "ONLINE";
+                nameInput.disabled = true;
+            } else {
+                // STOP TRACKING
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                
+                if (wakeLock !== null) {
+                    wakeLock.release();
+                    wakeLock = null;
+                }
+
+                btn.innerText = "Start Rit";
+                btn.classList.remove('active');
+                circle.classList.remove('active');
+                statusLabel.innerText = "OFFLINE";
+                nameInput.disabled = false;
+                debug.innerText = "Tracking gestopt.";
+            }
+        }
+    </script>
+</body>
+</html>

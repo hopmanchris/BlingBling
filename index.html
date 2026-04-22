@@ -11,7 +11,7 @@
         .main { display: flex; flex: 1; }
         #sidebar { width: 250px; background: #000; padding: 20px; border-right: 1px solid #333; }
         #map { flex: 1; }
-        #status-indicator { background: red; color: white; padding: 5px; font-size: 10px; position: absolute; bottom: 10px; left: 10px; z-index: 9999; }
+        #status-indicator { background: orange; color: black; padding: 5px 10px; font-size: 12px; position: absolute; bottom: 10px; left: 10px; z-index: 9999; font-weight: bold; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -20,11 +20,11 @@
         <div id="sidebar">
             <h3 style="color: #ffcc00">LIVE BEZORGERS</h3>
             <ul id="list" style="list-style: none; padding: 0;"></ul>
-            <div id="debug-log" style="font-size: 10px; color: #666; margin-top: 20px;">Systeem start op...</div>
+            <div id="debug-log" style="font-size: 11px; color: #aaa; margin-top: 20px;">Systeem start op...</div>
         </div>
         <div id="map"></div>
     </div>
-    <div id="status-indicator">ABLY: DISCONNECTED</div>
+    <div id="status-indicator" id="status-box">VERBINDEN...</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
@@ -35,31 +35,43 @@
         const map = L.map('map').setView([52.247, 5.378], 14);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-        // 2. Setup Ably
-        const ably = new Ably.Realtime('IZkpmw.mB2_5w:PAn16Xo-N-E-P2P3pXitR8Cizp2C76IqD5A_p8_qF2w');
+        // 2. Setup Ably met 'transports: ['web_socket']' om blokkades te omzeilen
+        const ably = new Ably.Realtime({
+            key: 'IZkpmw.mB2_5w:PAn16Xo-N-E-P2P3pXitR8Cizp2C76IqD5A_p8_qF2w',
+            transports: ['web_socket'] 
+        });
+        
         const channel = ably.channels.get('tracking');
 
         ably.connection.on('connected', () => {
-            statusInd.innerText = "ABLY: CONNECTED";
+            statusInd.innerText = "VERBONDEN (LIVE)";
             statusInd.style.background = "green";
-            log.innerText = "Verbonden! Wachten op mobiel signaal...";
+            statusInd.style.color = "white";
+            log.innerText = "Klaar voor ontvangst! Zet je mobiele zender aan.";
+        });
+
+        ably.connection.on('failed', () => {
+            statusInd.innerText = "VERBINDING MISLUKT";
+            statusInd.style.background = "red";
+            log.innerText = "Check je internet of API key.";
         });
 
         let markers = {};
 
         channel.subscribe('pos', (msg) => {
-            log.innerText = "LAATSTE SIGNAAL: " + new Date().toLocaleTimeString();
+            log.innerText = "ONTVANGEN: " + msg.data.name + " om " + new Date().toLocaleTimeString();
             const { name, lat, lng } = msg.data;
             
             if (!markers[name]) {
                 const li = document.createElement('li');
+                li.id = "user-" + name;
                 li.innerText = "🚚 " + name;
                 li.style.padding = "10px 0";
                 li.style.borderBottom = "1px solid #222";
                 document.getElementById('list').appendChild(li);
                 
                 markers[name] = L.marker([lat, lng]).addTo(map).bindTooltip(name, {permanent: true}).openTooltip();
-                map.panTo([lat, lng]);
+                map.flyTo([lat, lng], 15);
             } else {
                 markers[name].setLatLng([lat, lng]);
             }

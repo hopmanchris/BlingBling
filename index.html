@@ -2,74 +2,70 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>BlingBling Control</title>
+    <title>BlingBling Control Center</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #111; color: white; font-family: sans-serif; display: flex; flex-direction: column; }
-        #top-bar { background: #000; padding: 10px; text-align: center; border-bottom: 2px solid #ffcc00; }
-        .main { display: flex; flex: 1; }
-        #sidebar { width: 250px; background: #000; padding: 20px; border-right: 1px solid #333; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
+        header { background: #000; padding: 10px; text-align: center; border-bottom: 2px solid #ffcc00; height: 50px; }
+        .container { display: flex; height: calc(100vh - 72px); }
+        #sidebar { width: 260px; background: #0a0a0a; padding: 20px; border-right: 1px solid #333; }
         #map { flex: 1; }
-        #status-indicator { background: orange; color: black; padding: 5px 10px; font-size: 12px; position: absolute; bottom: 10px; left: 10px; z-index: 9999; font-weight: bold; border-radius: 5px; }
+        .status-tag { position: absolute; bottom: 20px; left: 20px; padding: 8px 15px; border-radius: 5px; font-weight: bold; z-index: 1000; font-size: 12px; }
+        .online { background: #00ff00; color: #000; }
+        .offline { background: #ff0000; color: #fff; }
+        .driver-item { padding: 12px; border-bottom: 1px solid #222; color: #00ff00; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="top-bar"><img src="logo.png" height="40"></div>
-    <div class="main">
+    <header><img src="logo.png" height="45"></header>
+    <div class="container">
         <div id="sidebar">
-            <h3 style="color: #ffcc00">LIVE BEZORGERS</h3>
-            <ul id="list" style="list-style: none; padding: 0;"></ul>
-            <div id="debug-log" style="font-size: 11px; color: #aaa; margin-top: 20px;">Systeem start op...</div>
+            <h3 style="color: #ffcc00; margin-top: 0;">LIVE BEZORGERS</h3>
+            <ul id="driver-list" style="list-style: none; padding: 0;"></ul>
+            <div id="log" style="font-size: 11px; color: #666; margin-top: 20px;">Systeem start op...</div>
         </div>
         <div id="map"></div>
     </div>
-    <div id="status-indicator" id="status-box">VERBINDEN...</div>
+    <div id="status-box" class="status-tag offline">SYSTEEM OFFLINE</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const log = document.getElementById('debug-log');
-        const statusInd = document.getElementById('status-indicator');
-        
-        // 1. Setup Kaart
+        const log = document.getElementById('log');
+        const statusBox = document.getElementById('status-box');
+
         const map = L.map('map').setView([52.247, 5.378], 14);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-        // 2. Setup Ably met 'transports: ['web_socket']' om blokkades te omzeilen
+        // HIER STAAT JE NIEUWE KEY
         const ably = new Ably.Realtime({
-            key: 'IZkpmw.mB2_5w:PAn16Xo-N-E-P2P3pXitR8Cizp2C76IqD5A_p8_qF2w',
-            transports: ['web_socket'] 
+            key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ'
         });
-        
-        const channel = ably.channels.get('tracking');
 
         ably.connection.on('connected', () => {
-            statusInd.innerText = "VERBONDEN (LIVE)";
-            statusInd.style.background = "green";
-            statusInd.style.color = "white";
-            log.innerText = "Klaar voor ontvangst! Zet je mobiele zender aan.";
+            statusBox.innerText = "SYSTEEM LIVE";
+            statusBox.className = "status-tag online";
+            log.innerText = "Klaar voor ontvangst...";
         });
 
         ably.connection.on('failed', () => {
-            statusInd.innerText = "VERBINDING MISLUKT";
-            statusInd.style.background = "red";
-            log.innerText = "Check je internet of API key.";
+            statusBox.innerText = "SLEUTELFOUT";
+            statusBox.className = "status-tag offline";
         });
 
         let markers = {};
+        const channel = ably.channels.get('tracking');
 
-        channel.subscribe('pos', (msg) => {
-            log.innerText = "ONTVANGEN: " + msg.data.name + " om " + new Date().toLocaleTimeString();
-            const { name, lat, lng } = msg.data;
-            
+        channel.subscribe('pos', (message) => {
+            const { name, lat, lng } = message.data;
+            log.innerText = "Update: " + name + " (" + new Date().toLocaleTimeString() + ")";
+
             if (!markers[name]) {
                 const li = document.createElement('li');
-                li.id = "user-" + name;
+                li.className = "driver-item";
                 li.innerText = "🚚 " + name;
-                li.style.padding = "10px 0";
-                li.style.borderBottom = "1px solid #222";
-                document.getElementById('list').appendChild(li);
-                
+                document.getElementById('driver-list').appendChild(li);
+
                 markers[name] = L.marker([lat, lng]).addTo(map).bindTooltip(name, {permanent: true}).openTooltip();
                 map.flyTo([lat, lng], 15);
             } else {

@@ -11,41 +11,52 @@
         header { background: #000; padding: 10px; display: flex; justify-content: center; align-items: center; height: 60px; }
         header img { max-height: 50px; }
         .main-container { display: flex; flex-grow: 1; }
-        #sidebar { width: 250px; background: #000; color: white; padding: 20px; border-right: 1px solid #333; }
+        #sidebar { width: 250px; background: #000; color: white; padding: 20px; border-right: 1px solid #333; z-index: 10; }
         #sidebar h2 { font-size: 14px; color: #ffcc00; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 10px; }
         #driver-list { list-style: none; padding: 0; }
-        .driver-item { padding: 10px; border-bottom: 1px solid #222; display: flex; align-items: center; font-size: 14px; }
+        .driver-item { padding: 10px; border-bottom: 1px solid #222; display: flex; align-items: center; font-size: 14px; font-weight: bold; }
         .driver-item::before { content: "●"; color: #00ff00; margin-right: 10px; }
         #map { flex-grow: 1; background: #222; }
-        .driver-label { background: #ffcc00; border: 1px solid #000; font-weight: bold; padding: 2px 5px; border-radius: 3px; }
+        .driver-label { background: #ffcc00; border: 1px solid #000; font-weight: bold; padding: 2px 5px; border-radius: 3px; color: black; }
     </style>
 </head>
 <body>
     <header><img src="logo.png"></header>
     <div class="main-container">
         <div id="sidebar">
-            <h2>Wie zijn er aan het rijden?</h2>
+            <h2>Live Bezorgers</h2>
             <ul id="driver-list"></ul>
+            <p id="no-drivers" style="color: #555; font-size: 12px;">Wachten op signaal...</p>
         </div>
         <div id="map"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Verbinding maken met Ably
         const ably = new Ably.Realtime('IZkpmw.mB2_5w:PAn16Xo-N-E-P2P3pXitR8Cizp2C76IqD5A_p8_qF2w');
         const channel = ably.channels.get('tracking');
         
+        // Kaart initialiseren
         const map = L.map('map').setView([52.247, 5.378], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; BlingBling'
+        }).addTo(map);
 
         let markers = {};
         let activeDrivers = new Set();
 
+        // Luisteren naar binnenkomende posities
         channel.subscribe('pos', (message) => {
-            const { name, lat, lng } = message.data;
-            console.log("Data ontvangen voor:", name, lat, lng);
+            const data = message.data;
+            const name = data.name;
+            const lat = data.lat;
+            const lng = data.lng;
 
-            // 1. Update de lijst links
+            console.log("Ontvangen:", name, lat, lng);
+            document.getElementById('no-drivers').style.display = 'none';
+
+            // 1. Naam in de zijbalk zetten als die er nog niet staat
             if (!activeDrivers.has(name)) {
                 activeDrivers.add(name);
                 const li = document.createElement('li');
@@ -55,19 +66,23 @@
                 document.getElementById('driver-list').appendChild(li);
             }
 
-            // 2. Update de marker op de kaart
+            // 2. Marker op de kaart zetten of verplaatsen
             if (markers[name]) {
                 markers[name].setLatLng([lat, lng]);
             } else {
+                // Maak een nieuwe marker (standaard blauwe pin)
                 markers[name] = L.marker([lat, lng]).addTo(map)
                     .bindTooltip(name, { permanent: true, direction: 'top', className: 'driver-label' })
                     .openTooltip();
                 
-                // Bij de allereerste bezorger: zoom de kaart naar hem toe
-                if (Object.keys(markers).length === 1) {
-                    map.setView([lat, lng], 16);
-                }
+                // Focus de kaart op de eerste bezorger die verschijnt
+                map.setView([lat, lng], 15);
             }
+        });
+
+        // Check of Ably verbonden is
+        ably.connection.on('connected', () => {
+            console.log("Dashboard is verbonden met Ably!");
         });
     </script>
 </body>

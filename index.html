@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlingBling Mission Control</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    
+    <style>
+        body, html { 
+            margin: 0; padding: 0; height: 100%; width: 100%; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header zonder gele streep */
+        header {
+            background: #000;
+            padding: 10px 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            height: 60px;
+        }
+
+        header img.logo {
+            max-height: 50px;
+            width: auto;
+        }
+
+        /* Container voor Kaart + Zijbalk */
+        .main-container {
+            display: flex;
+            flex-grow: 1;
+            position: relative;
+        }
+
+        /* Zijbalk met actieve rijders */
+        #sidebar {
+            width: 250px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-right: 1px solid #333;
+            z-index: 1500;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        #sidebar h2 {
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #ffcc00;
+            margin-top: 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        #driver-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .driver-item {
+            padding: 10px;
+            border-bottom: 1px solid #222;
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        .driver-item::before {
+            content: "●";
+            color: #00ff00;
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        #map { flex-grow: 1; height: 100%; }
+
+        /* UI Controls */
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: flex;
+            border: 1px solid #ccc;
+        }
+
+        .dark-mode-ui .map-controls {
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid #444;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin: 2px;
+        }
+
+        .btn-light { background: #f0f0f0; color: #333; }
+        .btn-dark { background: #333; color: #fff; }
+
+        /* Status Badge links-onder op de kaart */
+        .status-badge {
+            position: absolute;
+            bottom: 25px;
+            right: 25px; /* Verplaatst naar rechts omdat de lijst links zit */
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 1px solid #00ff00;
+        }
+
+        .driver-label {
+            background: #ffcc00;
+            border: 2px solid #000;
+            border-radius: 4px;
+            color: #000;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+    </style>
+</head>
+<body class="dark-mode-ui">
+
+    <header>
+        <img src="logo.png" alt="BlingBling Logo" class="logo">
+    </header>
+
+    <div class="main-container">
+        <div id="sidebar">
+            <h2>Live Bezorgers</h2>
+            <ul id="driver-list">
+                </ul>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="map-controls">
+            <button class="btn-light" onclick="setMapStyle('light')">☀️ DAG</button>
+            <button class="btn-dark" onclick="setMapStyle('dark')">🌙 NACHT</button>
+        </div>
+
+        <div id="status" class="status-badge">● SYSTEEM LIVE</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        const ably = new Ably.Realtime('IZkpmw.mB2_5w:PAn16Xo-N-E-P2P3pXitR8Cizp2C76IqD5A_p8_qF2w'); 
+        const channel = ably.channels.get('tracking');
+        
+        let map;
+        let markers = {}; 
+        let activeDrivers = new Set(); // Om bij te houden wie er in de lijst staan
+        let currentLayer;
+
+        const darkTiles = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        const lightTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([52.247, 5.378], 14); 
+
+            currentLayer = L.tileLayer(darkTiles, {
+                attribution: '&copy; BlingBling Spakenburg',
+                maxZoom: 19
+            }).addTo(map);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+        }
+
+        function setMapStyle(style) {
+            map.removeLayer(currentLayer);
+            if (style === 'dark') {
+                currentLayer = L.tileLayer(darkTiles).addTo(map);
+                document.body.classList.add('dark-mode-ui');
+            } else {
+                currentLayer = L.tileLayer(lightTiles).addTo(map);
+                document.body.classList.remove('dark-mode-ui');
+            }
+        }
+
+        // Functie om de lijst links bij te werken
+        function updateDriverList(name) {
+            if (!activeDrivers.has(name)) {
+                activeDrivers.add(name);
+                const list = document.getElementById('driver-list');
+                const li = document.createElement('li');
+                li.id = "list-" + name;
+                li.className = "driver-item";
+                li.innerText = name;
+                list.appendChild(li);
+            }
+        }
+
+        channel.subscribe('pos', (message) => {
+            const data = message.data;
+            const driverId = data.name;
+
+            // Update de lijst links
+            updateDriverList(driverId);
+
+            if (markers[driverId]) {
+                markers[driverId].setLatLng([data.lat, data.lng]);
+            } else {
+                markers[driverId] = L.marker([data.lat, data.lng])
+                    .addTo(map)
+                    .bindTooltip(driverId, { 
+                        permanent: true, 
+                        direction: 'top', 
+                        className: 'driver-label',
+                        offset: [0, -10]
+                    })
+                    .openTooltip();
+            }
+        });
+
+        initMap();
+    </script>
+</body>
+</html>

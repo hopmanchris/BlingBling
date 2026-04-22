@@ -7,83 +7,143 @@
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
         body { 
-            font-family: sans-serif; background: #000; color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: #000; color: white; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
             height: 100vh; margin: 0; text-align: center;
         }
-        .logo-container { margin-bottom: 20px; }
-        .logo-container img { max-height: 50px; }
+        .logo-container { margin-bottom: 30px; }
+        .logo-container img { max-height: 60px; }
+        
         .status-circle {
-            width: 120px; height: 120px; border-radius: 50%;
-            background: #222; border: 4px solid #333;
-            display: flex; align-items: center; justify-content: center;
-            margin-bottom: 20px; transition: 0.5s;
+            width: 140px; height: 140px; border-radius: 50%;
+            background: #111; border: 4px solid #333;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            margin-bottom: 30px; transition: all 0.5s ease;
         }
-        .active-glow { border-color: #00ff00; box-shadow: 0 0 20px #00ff00; background: rgba(0,255,0,0.1); }
+        .active-glow { 
+            border-color: #00ff00; 
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4); 
+            background: rgba(0, 255, 0, 0.1); 
+        }
+
         input { 
-            padding: 15px; width: 70%; border-radius: 10px; border: none; 
-            margin-bottom: 20px; font-size: 1rem; text-align: center;
+            padding: 18px; width: 80%; max-width: 300px; border-radius: 12px; border: 2px solid #333; 
+            margin-bottom: 20px; font-size: 1.1rem; text-align: center;
+            background: #111; color: white; outline: none;
         }
+        input:focus { border-color: #ffcc00; }
+
         button { 
-            padding: 20px 40px; font-size: 1.2rem; font-weight: bold;
-            background: #ffcc00; border: none; border-radius: 50px; cursor: pointer;
+            padding: 20px 50px; font-size: 1.3rem; font-weight: bold;
+            background: #ffcc00; border: none; border-radius: 50px; 
+            cursor: pointer; color: black; transition: 0.3s;
+            width: 80%; max-width: 300px;
         }
         .stop-btn { background: #ff4444; color: white; }
-        #debug { font-size: 0.8rem; margin-top: 20px; opacity: 0.6; color: #00ff00; }
+
+        #debug { 
+            font-size: 0.85rem; margin-top: 25px; color: #888; 
+            padding: 10px; border-radius: 5px; background: rgba(255,255,255,0.05);
+            min-width: 200px;
+        }
     </style>
 </head>
 <body>
-    <div class="logo-container"><img src="logo.png"></div>
-    <div class="status-circle" id="circle"><b>STATUS</b></div>
-    <input type="text" id="driverName" placeholder="Naam bezorger...">
+
+    <div class="logo-container">
+        <img src="logo.png" alt="BlingBling Logo">
+    </div>
+
+    <div class="status-circle" id="circle">
+        <span id="status-text" style="font-size: 0.8rem; letter-spacing: 2px;">OFFLINE</span>
+        <div id="timer" style="font-size: 1.2rem; font-weight: bold; margin-top: 5px;">00:00</div>
+    </div>
+
+    <input type="text" id="driverName" placeholder="Je naam (bijv. Chris)...">
+    
     <button id="toggleBtn" onclick="toggleTracking()">START RIT</button>
-    <div id="debug">Wachten op actie...</div>
+
+    <div id="debug">Wachten op start...</div>
 
     <script>
-        const ably = new Ably.Realtime('IZkpmw.mB2_5w:PAn16Xo-N-E-P2P3pXitR8Cizp2C76IqD5A_p8_qF2w');
+        // DE NIEUWE API KEY
+        const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
+        
         let watchId = null;
+        let startTime = null;
+        let timerInterval = null;
+
+        function updateTimer() {
+            const now = new Date();
+            const diff = Math.floor((now - startTime) / 1000);
+            const mins = Math.floor(diff / 60).toString().padStart(2, '0');
+            const secs = (diff % 60).toString().padStart(2, '0');
+            document.getElementById('timer').innerText = mins + ":" + secs;
+        }
 
         function toggleTracking() {
             const btn = document.getElementById('toggleBtn');
-            const name = document.getElementById('driverName').value;
+            const nameInput = document.getElementById('driverName');
             const debug = document.getElementById('debug');
             const circle = document.getElementById('circle');
+            const statusText = document.getElementById('status-text');
 
-            if (!name) { alert("Vul eerst je naam in!"); return; }
+            if (!nameInput.value) { 
+                alert("Vul even je naam in voor je begint!"); 
+                return; 
+            }
 
             if (watchId === null) {
-                // START
+                // --- START TRACKING ---
+                debug.innerText = "GPS zoeken...";
+                
                 watchId = navigator.geolocation.watchPosition(pos => {
                     const payload = {
-                        name: name,
+                        name: nameInput.value,
                         lat: pos.coords.latitude,
                         lng: pos.coords.longitude,
                         timestamp: new Date().getTime()
                     };
+                    
+                    // Verzend naar Ably
                     channel.publish('pos', payload);
-                    debug.innerText = "Locatie verzonden: " + new Date().toLocaleTimeString();
+                    
+                    debug.innerText = "Signaal verzonden om " + new Date().toLocaleTimeString();
+                    statusText.innerText = "LIVE";
+                    circle.classList.add('active-glow');
                 }, err => {
-                    debug.innerText = "Error: " + err.message;
-                    alert("Zet je GPS aan en geef toestemming!");
-                }, { enableHighAccuracy: true });
+                    debug.innerText = "GPS Fout: " + err.message;
+                    alert("Zet je GPS aan!");
+                }, { 
+                    enableHighAccuracy: true,
+                    maximumAge: 0
+                });
 
+                // UI aanpassen
                 btn.innerText = "STOP RIT";
                 btn.classList.add('stop-btn');
-                circle.classList.add('active-glow');
-                document.getElementById('driverName').disabled = true;
+                nameInput.disabled = true;
+                startTime = new Date();
+                timerInterval = setInterval(updateTimer, 1000);
+
             } else {
-                // STOP
+                // --- STOP TRACKING ---
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
+                
+                clearInterval(timerInterval);
+                document.getElementById('timer').innerText = "00:00";
+                
                 btn.innerText = "START RIT";
                 btn.classList.remove('stop-btn');
                 circle.classList.remove('active-glow');
-                document.getElementById('driverName').disabled = false;
-                debug.innerText = "Gepauzeerd";
+                statusText.innerText = "OFFLINE";
+                nameInput.disabled = false;
+                debug.innerText = "Rit gestopt.";
             }
         }
     </script>
 </body>
-</html>
 </html>

@@ -3,51 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling Navigatie</title>
+    <title>BlingBling Navigatie PRO</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #f4f4f4; color: #333; font-family: -apple-system, sans-serif; overflow: hidden; }
-        #map { height: 65%; width: 100%; background: #eee; }
-        
-        /* De UI beneden */
-        .ui { height: 35%; background: white; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-top: 2px solid #ffcc00; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); z-index: 1000; position: relative; }
-        
-        .status-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .live-tag { color: #28a745; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; }
-        .live-dot { width: 8px; height: 8px; background: #28a745; border-radius: 50%; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        :root { --accent: #ffcc00; --bg: #ffffff; --text: #1a1a1a; }
+        body.dark { --bg: #121212; --text: #ffffff; }
 
-        input { background: #f9f9f9; border: 1px solid #ddd; color: #333; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 1rem; outline: none; }
-        input:focus { border-color: #ffcc00; }
+        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; overflow: hidden; transition: background 0.3s; }
         
-        .btn { padding: 14px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s; width: 100%; }
-        .nav-btn { background: #ffcc00; color: black; box-shadow: 0 4px 10px rgba(255,204,0,0.3); }
+        #map { height: 65%; width: 100%; transition: height 0.5s ease; }
+        #map.driving { height: 75%; }
+
+        .ui { height: 35%; background: var(--bg); padding: 15px; display: flex; flex-direction: column; gap: 10px; border-top: 2px solid var(--accent); box-shadow: 0 -5px 20px rgba(0,0,0,0.1); z-index: 1000; position: relative; transition: height 0.5s ease; }
+        .ui.driving { height: 25%; }
+
+        .status-bar { display: flex; justify-content: space-between; align-items: center; }
+        .live-tag { color: #28a745; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; visibility: hidden; }
+        .live-dot { width: 10px; height: 10px; background: #28a745; border-radius: 50%; animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+
+        input { background: rgba(0,0,0,0.05); border: 1px solid #ddd; color: var(--text); padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; font-size: 1rem; outline: none; }
+        body.dark input { background: rgba(255,255,255,0.1); border-color: #444; }
+
+        .btn { padding: 16px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; width: 100%; }
+        .nav-btn { background: var(--accent); color: black; box-shadow: 0 4px 15px rgba(255,204,0,0.4); }
         .stop-btn { background: #ff4444 !important; color: white !important; }
         
-        /* Thema Switcher op de kaart */
-        .theme-toggle {
-            position: absolute; top: 10px; right: 10px; z-index: 1000;
-            background: white; border: 2px solid rgba(0,0,0,0.2); padding: 8px;
-            border-radius: 8px; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center;
-        }
-
-        #timer { font-family: monospace; font-weight: bold; font-size: 1rem; }
+        .theme-toggle { position: absolute; top: 15px; right: 15px; z-index: 1000; background: var(--bg); border: 1px solid #ccc; padding: 10px; border-radius: 12px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 1.2rem; }
+        
+        #timer { font-family: 'Courier New', monospace; font-weight: bold; font-size: 1.1rem; color: var(--accent); }
+        .car-emoji { font-size: 30px; text-shadow: 0 2px 5px rgba(0,0,0,0.3); }
     </style>
 </head>
-<body>
+<body class="light">
 
     <div id="map"></div>
     <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
     
-    <div class="ui">
+    <div class="ui" id="ui-panel">
         <div class="status-bar">
-            <div id="status" class="live-tag" style="visibility: hidden;"><div class="live-dot"></div> LIVE VERBINDING</div>
+            <div id="status" class="live-tag"><div class="live-dot"></div> LIVE TRACKING</div>
             <div id="timer">00:00</div>
         </div>
 
-        <input type="text" id="driverName" placeholder="Naam bezorger...">
-        <input type="text" id="targetAddress" placeholder="Adres klant (bijv. Spuistraat 1)...">
+        <div id="inputs">
+            <input type="text" id="driverName" placeholder="Naam bezorger..." style="margin-bottom: 8px;">
+            <input type="text" id="targetAddress" placeholder="Adres van de klant...">
+        </div>
         
         <button id="mainBtn" class="btn nav-btn" onclick="startJourney()">START RIT</button>
     </div>
@@ -57,83 +60,111 @@
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
         
-        // Thema's definiëren
         const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
         const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
-        let map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.2241, 5.3714], 14);
-        lightTiles.addTo(map); // Start met licht
+        let map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.2241, 5.3714], 15);
+        lightTiles.addTo(map);
 
-        let isDark = false;
         function toggleTheme() {
-            if (isDark) { map.removeLayer(darkTiles); lightTiles.addTo(map); isDark = false; }
-            else { map.removeLayer(lightTiles); darkTiles.addTo(map); isDark = true; }
+            const b = document.body;
+            if (b.classList.contains('light')) {
+                b.classList.replace('light', 'dark');
+                map.removeLayer(lightTiles); darkTiles.addTo(map);
+            } else {
+                b.classList.replace('dark', 'light');
+                map.removeLayer(darkTiles); lightTiles.addTo(map);
+            }
         }
 
         let marker = L.marker([0,0], {
             icon: L.divIcon({ html: '🚗', className: 'car-emoji', iconSize: [30, 30], iconAnchor: [15, 15] })
         }).addTo(map);
         
-        let routeLine = L.polyline([], {color: '#007bff', weight: 6, opacity: 0.7}).addTo(map);
+        let routeLine = L.polyline([], {color: '#4285F4', weight: 6, opacity: 0.7, lineCap: 'round'}).addTo(map);
+        let finishMarker = L.marker([0,0], { icon: L.divIcon({html:'🏁', iconSize:[30,30], iconAnchor:[15,15]}) });
+
         let watchId = null;
         let lastSend = 0;
-        let startTime = null;
+        let lastPos = null;
 
         document.getElementById('driverName').value = localStorage.getItem('driverName') || "";
 
         async function startJourney() {
             const name = document.getElementById('driverName').value;
             const address = document.getElementById('targetAddress').value;
-            
-            if(!name) return alert("Vul je naam in!");
+            if(!name) return alert("Naam invullen!");
+
             localStorage.setItem('driverName', name);
-
-            document.getElementById('mainBtn').innerText = "STOP RIT";
-            document.getElementById('mainBtn').classList.add('stop-btn');
-            document.getElementById('mainBtn').onclick = () => location.reload();
+            
+            // UI Optimalisatie voor tijdens het rijden
+            document.getElementById('ui-panel').classList.add('driving');
+            document.getElementById('map').classList.add('driving');
+            document.getElementById('inputs').style.display = "none";
             document.getElementById('status').style.visibility = "visible";
-            startTime = Date.now();
+            
+            const btn = document.getElementById('mainBtn');
+            btn.innerText = "STOP RIT";
+            btn.className = "btn stop-btn";
+            btn.onclick = () => location.reload();
 
+            // Start GPS met filter tegen trillen
             watchId = navigator.geolocation.watchPosition(async (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
+                const { latitude, longitude } = pos.coords;
                 const now = Date.now();
-                
-                // Dashboard update (elke 4 sec)
+
+                // Bereken afstand t.o.v. laatste punt (negeer ruis onder de 3 meter)
+                if (lastPos) {
+                    const dist = Math.sqrt(Math.pow(latitude - lastPos.lat, 2) + Math.pow(longitude - lastPos.lng, 2));
+                    if (dist < 0.00003) return; 
+                }
+                lastPos = {lat: latitude, lng: longitude};
+
+                // Soepele beweging
+                marker.setLatLng([latitude, longitude]);
+                map.panTo([latitude, longitude], { animate: true, duration: 1.5 });
+
+                // Verzend naar Dashboard (elke 4 sec)
                 if (now - lastSend > 4000) {
-                    channel.publish('pos', { name: name, lat: lat, lng: lng });
+                    channel.publish('pos', { name, lat: latitude, lng: longitude });
                     lastSend = now;
                 }
-                
-                marker.setLatLng([lat, lng]);
-                map.flyTo([lat, lng], 17, { animate: true, duration: 1.5 });
 
+                // Route éénmalig berekenen
                 if(address && routeLine.getLatLngs().length === 0) {
-                    drawRoute(lat, lng, address);
+                    drawRoute(latitude, longitude, address);
                 }
-            }, null, { enableHighAccuracy: true });
+            }, null, { enableHighAccuracy: true, distanceFilter: 3 });
 
-            // Timer
-            setInterval(() => {
-                const diff = Math.floor((Date.now() - startTime) / 1000);
-                const m = Math.floor(diff/60).toString().padStart(2,'0');
-                const s = (diff%60).toString().padStart(2,'0');
-                document.getElementById('timer').innerText = m + ":" + s;
-            }, 1000);
+            startTimer();
         }
 
         async function drawRoute(sLat, sLng, dest) {
             try {
-                const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dest)}`);
-                const gd = await g.json();
-                if(gd.length === 0) return;
+                const geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dest)}`);
+                const geoData = await geo.json();
+                if(geoData.length === 0) return;
                 
-                const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${sLng},${sLat};${gd[0].lon},${gd[0].lat}?overview=full&geometries=geojson`);
-                const rd = await r.json();
-                const coords = rd.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                const eLat = geoData[0].lat; const eLng = geoData[0].lon;
+                finishMarker.setLatLng([eLat, eLng]).addTo(map);
+
+                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${sLng},${sLat};${eLng},${eLat}?overview=full&geometries=geojson`);
+                const data = await res.json();
+                const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                
                 routeLine.setLatLngs(coords);
-                L.marker([gd[0].lat, gd[0].lon]).addTo(map);
-            } catch (e) {}
+                map.fitBounds(routeLine.getBounds(), {padding: [40, 40]});
+            } catch (e) { console.error(e); }
+        }
+
+        function startTimer() {
+            let s = 0;
+            setInterval(() => {
+                s++;
+                const mins = Math.floor(s/60).toString().padStart(2,'0');
+                const secs = (s%60).toString().padStart(2,'0');
+                document.getElementById('timer').innerText = mins + ":" + secs;
+            }, 1000);
         }
     </script>
 </body>

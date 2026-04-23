@@ -3,79 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling Zender ULTIMATE</title>
+    <title>BlingBling Zender Nav</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #000; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; text-align: center; padding: 20px; }
-        .status-circle { width: 120px; height: 120px; border-radius: 50%; background: #111; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; }
-        .active-glow { animation: pulse 2s infinite; border-color: #00ff00 !important; box-shadow: 0 0 30px rgba(0,255,0,0.5); }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        input { padding: 15px; width: 90%; max-width: 300px; border-radius: 12px; border: 2px solid #333; margin-bottom: 15px; background: #111; color: white; text-align: center; }
-        .main-btn { padding: 18px; font-size: 1.2rem; font-weight: bold; background: #ffcc00; border: none; border-radius: 50px; width: 90%; max-width: 300px; color: black; }
-        .stop-btn { background: #ff4444 !important; color: white !important; }
-        .nav-box { margin-top: 30px; padding: 20px; background: #1a2a3a; width: 90%; max-width: 300px; border-radius: 15px; border: 1px solid #334455; }
-        .nav-btn { padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; color: white; width: 100%; margin-top: 10px; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
+        #map { height: 50%; width: 100%; border-bottom: 2px solid #ffcc00; }
+        .controls { height: 50%; padding: 15px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; background: #1a2a3a; }
+        
+        .status-header { display: flex; justify-content: space-between; width: 100%; margin-bottom: 15px; }
+        .timer { font-weight: bold; color: #ffcc00; font-size: 1.2rem; }
+        
+        input { width: 100%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 10px; background: #111; color: white; }
+        .btn { width: 100%; padding: 15px; border-radius: 50px; border: none; font-weight: bold; font-size: 1rem; cursor: pointer; }
+        .start-btn { background: #ffcc00; color: #000; }
+        .stop-btn { background: #ff4444; color: #fff; margin-top: 10px; }
+        
+        .pulse { animation: p 2s infinite; color: #00ff00; font-size: 0.8rem; font-weight: bold; }
+        @keyframes p { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
-    <div style="margin-bottom: 20px;"><img src="logo.png" style="max-height: 50px;"></div>
+    <div id="map"></div>
+    
+    <div class="controls">
+        <div class="status-header">
+            <div id="status" class="">OFFLINE</div>
+            <div class="timer" id="timer">00:00</div>
+        </div>
 
-    <div class="status-circle" id="circle">
-        <span id="status-text" style="font-size: 0.7rem; letter-spacing: 2px;">OFFLINE</span>
-        <div id="timer" style="font-size: 1.1rem; font-weight: bold;">00:00</div>
+        <input type="text" id="driverName" placeholder="Naam bezorger...">
+        <input type="text" id="targetAddress" placeholder="Adres van de klant...">
+        
+        <button id="toggleBtn" class="btn start-btn" onclick="toggleTracking()">START RIT & NAVIGATIE</button>
+        <button id="stopBtn" class="btn stop-btn" style="display:none;" onclick="location.reload()">STOP RIT</button>
+        
+        <p style="font-size: 0.7rem; color: #888; margin-top: 10px;">Hou dit scherm open tijdens het rijden.</p>
     </div>
 
-    <input type="text" id="driverName" placeholder="Naam bezorger...">
-    <button id="toggleBtn" class="main-btn" onclick="toggleTracking()">START RIT</button>
-
-    <div class="nav-box" id="navBox" style="display: none;">
-        <input type="text" id="targetAddress" placeholder="Adres klant..." style="width: 100%;">
-        <button class="nav-btn" style="background: #4285F4;" onclick="openNav('google')">Open Google Maps</button>
-    </div>
-
-    <audio id="silentAudio" loop><source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3"></audio>
-
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
+        
+        let map = L.map('map', { zoomControl: false }).setView([52.22419, 5.37145], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        let marker = L.marker([0,0]).addTo(map);
         let watchId = null;
-        let lastSend = 0;
+        let startTime = Date.now();
 
-        function openNav(type) {
-            const addr = encodeURIComponent(document.getElementById('targetAddress').value);
-            if (!addr) return alert("Vul adres in");
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${addr}`, '_blank');
-        }
+        // Onthoud naam
+        document.getElementById('driverName').value = localStorage.getItem('driverName') || "";
 
-        async function toggleTracking() {
-            const audio = document.getElementById('silentAudio');
-            const btn = document.getElementById('toggleBtn');
+        function toggleTracking() {
+            const name = document.getElementById('driverName').value;
+            const target = document.getElementById('targetAddress').value;
+            if(!name) return alert("Naam invullen");
+
+            localStorage.setItem('driverName', name);
             
-            if (watchId === null) {
-                // 1. Speel stilte af om de CPU wakker te houden
-                audio.play().catch(e => console.log("Audio start pas na interactie"));
+            // Start GPS
+            watchId = navigator.geolocation.watchPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
                 
-                // 2. Start GPS
-                watchId = navigator.geolocation.watchPosition(pos => {
-                    const now = Date.now();
-                    if (now - lastSend > 5000) {
-                        channel.publish('pos', {
-                            name: document.getElementById('driverName').value,
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude
-                        });
-                        lastSend = now;
-                    }
-                    document.getElementById('circle').classList.add('active-glow');
-                    document.getElementById('status-text').innerText = "LIVE (BG ACTIVE)";
-                }, null, { enableHighAccuracy: true });
+                // Update lokale kaart
+                const latlng = [lat, lng];
+                marker.setLatLng(latlng);
+                map.panTo(latlng);
 
-                btn.innerText = "STOP RIT";
-                btn.classList.add('stop-btn');
-                document.getElementById('navBox').style.display = "block";
-            } else {
-                location.reload();
+                // Verzend naar dashboard
+                channel.publish('pos', { name: name, lat: lat, lng: lng });
+                
+                document.getElementById('status').innerText = "• LIVE VERBINDING";
+                document.getElementById('status').className = "pulse";
+            }, null, { enableHighAccuracy: true });
+
+            // UI aanpassen
+            document.getElementById('toggleBtn').style.display = "none";
+            document.getElementById('stopBtn').style.display = "block";
+            
+            // Timer starten
+            setInterval(() => {
+                const diff = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('timer').innerText = Math.floor(diff/60).toString().padStart(2,'0') + ":" + (diff%60).toString().padStart(2,'0');
+            }, 1000);
+
+            // Als er een adres is ingevuld, open een klein venster voor de route
+            if(target) {
+                const searchUrl = `https://www.google.com/maps/embed/v1/directions?key=JOUW_GOOGLE_MAPS_API_KEY&origin=current_location&destination=${encodeURIComponent(target)}`;
+                // Let op: Voor echte navigatie-instructies in de app is een API-key nodig.
+                // Als alternatief openen we een link die in een kleine popup blijft.
             }
         }
     </script>

@@ -2,74 +2,124 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>BlingBling Control Center</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>BlingBling Dashboard</title>
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
-        header { background: #000; padding: 10px; text-align: center; border-bottom: 2px solid #ffcc00; height: 50px; }
-        .container { display: flex; height: calc(100vh - 72px); }
-        #sidebar { width: 260px; background: #0a0a0a; padding: 20px; border-right: 1px solid #333; }
-        #map { flex: 1; }
-        .status-tag { position: absolute; bottom: 20px; left: 20px; padding: 8px 15px; border-radius: 5px; font-weight: bold; z-index: 1000; font-size: 12px; }
-        .online { background: #00ff00; color: #000; }
-        .offline { background: #ff0000; color: #fff; }
-        .driver-item { padding: 12px; border-bottom: 1px solid #222; color: #00ff00; font-weight: bold; }
+        * { box-sizing: border-box; }
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            background: #000; color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            overflow: hidden; 
+        }
+        
+        header { 
+            background: #000; padding: 5px; text-align: center; 
+            border-bottom: 2px solid #ffcc00; height: 60px; 
+            display: flex; justify-content: center; align-items: center;
+        }
+        header img { height: 45px; }
+
+        .main-container { display: flex; flex-direction: column; height: calc(100vh - 60px); }
+        #map { flex: 1; width: 100%; z-index: 1; background: #111; }
+
+        /* Mobiele Namenlijst onderaan */
+        #sidebar { 
+            background: #0a0a0a; border-top: 1px solid #333; 
+            padding: 15px; overflow-y: auto; max-height: 150px;
+        }
+
+        /* Desktop weergave */
+        @media (min-width: 769px) {
+            .main-container { flex-direction: row; }
+            #sidebar { width: 300px; height: 100%; border-top: none; border-right: 1px solid #333; max-height: none; }
+        }
+
+        h2 { font-size: 12px; color: #ffcc00; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; }
+        .driver-item { padding: 8px 0; border-bottom: 1px solid #222; color: #00ff00; font-weight: bold; font-size: 14px; }
+        
+        /* De Naam-labels op de kaart */
+        .driver-label { 
+            background: #ffcc00; color: #000; font-weight: 800; 
+            padding: 2px 8px; border-radius: 4px; border: 1px solid #000; 
+            font-size: 11px; text-transform: uppercase;
+        }
+
+        .status-dot { 
+            position: absolute; top: 75px; left: 15px; padding: 5px 12px; 
+            border-radius: 20px; font-weight: bold; z-index: 1000; font-size: 10px;
+            background: #ff0000; color: white;
+        }
+        .online { background: #00ff00; color: #000; box-shadow: 0 0 10px #00ff00; }
     </style>
 </head>
 <body>
-    <header><img src="logo.png" height="45"></header>
-    <div class="container">
-        <div id="sidebar">
-            <h3 style="color: #ffcc00; margin-top: 0;">LIVE BEZORGERS</h3>
-            <ul id="driver-list" style="list-style: none; padding: 0;"></ul>
-            <div id="log" style="font-size: 11px; color: #666; margin-top: 20px;">Systeem start op...</div>
-        </div>
+    <header><img src="logo.png" onerror="this.src='https://via.placeholder.com/150x50?text=BlingBling'"></header>
+    
+    <div class="main-container">
         <div id="map"></div>
+        <div id="sidebar">
+            <h2>Live Crew</h2>
+            <ul id="driver-list" style="list-style: none; padding: 0; margin: 0;"></ul>
+        </div>
     </div>
-    <div id="status-box" class="status-tag offline">SYSTEEM OFFLINE</div>
+    
+    <div id="status-box" class="status-dot">VERBINDEN...</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const log = document.getElementById('log');
         const statusBox = document.getElementById('status-box');
+        
+        // Donkere Kaart Setup
+        const map = L.map('map', { zoomControl: false }).setView([52.247, 5.378], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
 
-        const map = L.map('map').setView([52.247, 5.378], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-
-        // HIER STAAT JE NIEUWE KEY
-        const ably = new Ably.Realtime({
-            key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ'
+        // Bezorgauto Icoon
+        const carIcon = L.divIcon({
+            className: 'car-marker',
+            html: '<div style="font-size: 24px; filter: drop-shadow(0 0 2px black);">🚗</div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
         });
+
+        const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
+        const channel = ably.channels.get('tracking');
 
         ably.connection.on('connected', () => {
-            statusBox.innerText = "SYSTEEM LIVE";
-            statusBox.className = "status-tag online";
-            log.innerText = "Klaar voor ontvangst...";
-        });
-
-        ably.connection.on('failed', () => {
-            statusBox.innerText = "SLEUTELFOUT";
-            statusBox.className = "status-tag offline";
+            statusBox.innerText = "LIVE";
+            statusBox.className = "status-dot online";
         });
 
         let markers = {};
-        const channel = ably.channels.get('tracking');
 
         channel.subscribe('pos', (message) => {
             const { name, lat, lng } = message.data;
-            log.innerText = "Update: " + name + " (" + new Date().toLocaleTimeString() + ")";
+            const pos = [lat, lng];
 
             if (!markers[name]) {
+                // Toevoegen aan lijst onderaan
                 const li = document.createElement('li');
                 li.className = "driver-item";
-                li.innerText = "🚚 " + name;
+                li.innerText = "● " + name;
                 document.getElementById('driver-list').appendChild(li);
 
-                markers[name] = L.marker([lat, lng]).addTo(map).bindTooltip(name, {permanent: true}).openTooltip();
-                map.flyTo([lat, lng], 15);
+                // Auto op de kaart
+                markers[name] = L.marker(pos, { icon: carIcon }).addTo(map)
+                    .bindTooltip(name, { permanent: true, direction: 'top', className: 'driver-label', offset: [0, -10] })
+                    .openTooltip();
+                
+                map.panTo(pos);
             } else {
-                markers[name].setLatLng([lat, lng]);
+                markers[name].setLatLng(pos);
             }
         });
     </script>

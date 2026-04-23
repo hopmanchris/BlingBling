@@ -3,43 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling Zender Nav</title>
+    <title>BlingBling Navigatie</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
-        #map { height: 50%; width: 100%; border-bottom: 2px solid #ffcc00; }
-        .controls { height: 50%; padding: 15px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; background: #1a2a3a; }
-        
-        .status-header { display: flex; justify-content: space-between; width: 100%; margin-bottom: 15px; }
-        .timer { font-weight: bold; color: #ffcc00; font-size: 1.2rem; }
-        
-        input { width: 100%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 10px; background: #111; color: white; }
-        .btn { width: 100%; padding: 15px; border-radius: 50px; border: none; font-weight: bold; font-size: 1rem; cursor: pointer; }
-        .start-btn { background: #ffcc00; color: #000; }
-        .stop-btn { background: #ff4444; color: #fff; margin-top: 10px; }
-        
-        .pulse { animation: p 2s infinite; color: #00ff00; font-size: 0.8rem; font-weight: bold; }
-        @keyframes p { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        body, html { margin: 0; padding: 0; height: 100%; background: #121212; color: white; font-family: sans-serif; overflow: hidden; }
+        #map { height: 60%; width: 100%; }
+        .ui { height: 40%; background: #1a1a1a; padding: 15px; display: flex; flex-direction: column; gap: 10px; border-top: 2px solid #ffcc00; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); z-index: 1000; position: relative; }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; }
+        .live-tag { color: #00ff00; font-weight: bold; font-size: 0.8rem; animation: blink 2s infinite; }
+        @keyframes blink { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        input { background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 1rem; }
+        .btn { padding: 15px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; }
+        .nav-btn { background: #ffcc00; color: black; }
+        .stop-btn { background: #ff4444; color: white; }
+        #instruction { font-size: 0.9rem; color: #aaa; text-align: center; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
     
-    <div class="controls">
-        <div class="status-header">
-            <div id="status" class="">OFFLINE</div>
-            <div class="timer" id="timer">00:00</div>
+    <div class="ui">
+        <div class="status-bar">
+            <div id="status" class="live-tag" style="visibility: hidden;">● LIVE VERBINDING</div>
+            <div id="timer" style="font-weight: bold;">00:00</div>
         </div>
 
         <input type="text" id="driverName" placeholder="Naam bezorger...">
         <input type="text" id="targetAddress" placeholder="Adres van de klant...">
         
-        <button id="toggleBtn" class="btn start-btn" onclick="toggleTracking()">START RIT & NAVIGATIE</button>
-        <button id="stopBtn" class="btn stop-btn" style="display:none;" onclick="location.reload()">STOP RIT</button>
-        
-        <p style="font-size: 0.7rem; color: #888; margin-top: 10px;">Hou dit scherm open tijdens het rijden.</p>
+        <button id="mainBtn" class="btn nav-btn" onclick="startJourney()">START RIT & NAVIGEER</button>
+        <div id="instruction">Hou dit scherm open tijdens het rijden</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -47,55 +42,68 @@
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
         
-        let map = L.map('map', { zoomControl: false }).setView([52.22419, 5.37145], 14);
+        let map = L.map('map', { zoomControl: false }).setView([52.2241, 5.3714], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-        let marker = L.marker([0,0]).addTo(map);
+        
+        let carIcon = L.divIcon({ html: '🚗', className: 'car-icon', iconSize: [25, 25] });
+        let marker = L.marker([0,0], {icon: carIcon}).addTo(map);
+        let routeLine = L.polyline([], {color: '#4285F4', weight: 5, opacity: 0.8}).addTo(map);
+        
         let watchId = null;
-        let startTime = Date.now();
+        let isActive = false;
 
-        // Onthoud naam
         document.getElementById('driverName').value = localStorage.getItem('driverName') || "";
 
-        function toggleTracking() {
+        async function startJourney() {
             const name = document.getElementById('driverName').value;
-            const target = document.getElementById('targetAddress').value;
-            if(!name) return alert("Naam invullen");
-
-            localStorage.setItem('driverName', name);
+            const address = document.getElementById('targetAddress').value;
             
-            // Start GPS
-            watchId = navigator.geolocation.watchPosition(pos => {
+            if(!name) return alert("Vul je naam in!");
+            localStorage.setItem('driverName', name);
+
+            isActive = true;
+            document.getElementById('mainBtn').innerText = "STOP RIT";
+            document.getElementById('mainBtn').className = "btn stop-btn";
+            document.getElementById('mainBtn').onclick = () => location.reload();
+            document.getElementById('status').style.visibility = "visible";
+
+            // Start GPS en Tracking
+            watchId = navigator.geolocation.watchPosition(async (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
                 
-                // Update lokale kaart
-                const latlng = [lat, lng];
-                marker.setLatLng(latlng);
-                map.panTo(latlng);
-
-                // Verzend naar dashboard
+                // 1. Dashboard updaten via Ably
                 channel.publish('pos', { name: name, lat: lat, lng: lng });
                 
-                document.getElementById('status').innerText = "• LIVE VERBINDING";
-                document.getElementById('status').className = "pulse";
+                // 2. Lokale kaart updaten
+                marker.setLatLng([lat, lng]);
+                map.setView([lat, lng], 16);
+
+                // 3. Route tekenen als er een adres is
+                if(address && routeLine.getLatLngs().length === 0) {
+                    drawRoute(lat, lng, address);
+                }
             }, null, { enableHighAccuracy: true });
+        }
 
-            // UI aanpassen
-            document.getElementById('toggleBtn').style.display = "none";
-            document.getElementById('stopBtn').style.display = "block";
-            
-            // Timer starten
-            setInterval(() => {
-                const diff = Math.floor((Date.now() - startTime) / 1000);
-                document.getElementById('timer').innerText = Math.floor(diff/60).toString().padStart(2,'0') + ":" + (diff%60).toString().padStart(2,'0');
-            }, 1000);
+        async function drawRoute(startLat, startLng, destination) {
+            try {
+                // Geocoding: Adres naar coördinaten
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`);
+                const geoData = await geoRes.json();
+                if(geoData.length === 0) return;
+                
+                const endLat = geoData[0].lat;
+                const endLng = geoData[0].lon;
 
-            // Als er een adres is ingevuld, open een klein venster voor de route
-            if(target) {
-                const searchUrl = `https://www.google.com/maps/embed/v1/directions?key=JOUW_GOOGLE_MAPS_API_KEY&origin=current_location&destination=${encodeURIComponent(target)}`;
-                // Let op: Voor echte navigatie-instructies in de app is een API-key nodig.
-                // Als alternatief openen we een link die in een kleine popup blijft.
-            }
+                // Route berekenen
+                const routeRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`);
+                const routeData = await routeRes.json();
+                
+                const coordinates = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                routeLine.setLatLngs(coordinates);
+                L.marker([endLat, endLng]).addTo(map).bindPopup("Klant").openPopup();
+            } catch (e) { console.error("Route fout:", e); }
         }
     </script>
 </body>

@@ -3,145 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling Zender</title>
+    <title>BlingBling Zender PRO</title>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            font-family: -apple-system, system-ui, sans-serif; 
             background: #000; color: white; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            height: 100vh; margin: 0; text-align: center;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; margin: 0; text-align: center; padding: 20px;
         }
-        .logo-container { margin-bottom: 30px; }
-        .logo-container img { max-height: 60px; }
+        .logo-container { margin-bottom: 20px; margin-top: 10px; }
+        .logo-container img { max-height: 50px; }
         
         .status-circle {
-            width: 140px; height: 140px; border-radius: 50%;
+            width: 120px; height: 120px; border-radius: 50%;
             background: #111; border: 4px solid #333;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            margin-bottom: 30px; transition: all 0.5s ease;
+            margin-bottom: 20px; transition: all 0.5s ease;
         }
-        .active-glow { 
-            border-color: #00ff00; 
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4); 
-            background: rgba(0, 255, 0, 0.1); 
+        
+        @keyframes pulse-record {
+            0% { transform: scale(1); box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); }
+            50% { transform: scale(1.05); box-shadow: 0 0 30px rgba(0, 255, 0, 0.6); }
+            100% { transform: scale(1); box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); }
         }
+        .active-glow { animation: pulse-record 2s infinite ease-in-out; border-color: #00ff00 !important; }
 
         input { 
-            padding: 18px; width: 80%; max-width: 300px; border-radius: 12px; border: 2px solid #333; 
-            margin-bottom: 20px; font-size: 1.1rem; text-align: center;
+            padding: 15px; width: 90%; max-width: 300px; border-radius: 12px; border: 2px solid #333; 
+            margin-bottom: 15px; font-size: 1rem; text-align: center;
             background: #111; color: white; outline: none;
         }
-        input:focus { border-color: #ffcc00; }
-
-        button { 
-            padding: 20px 50px; font-size: 1.3rem; font-weight: bold;
+        
+        .main-btn { 
+            padding: 18px; font-size: 1.2rem; font-weight: bold;
             background: #ffcc00; border: none; border-radius: 50px; 
-            cursor: pointer; color: black; transition: 0.3s;
-            width: 80%; max-width: 300px;
+            cursor: pointer; color: black; width: 90%; max-width: 300px;
         }
         .stop-btn { background: #ff4444; color: white; }
 
-        #debug { 
-            font-size: 0.85rem; margin-top: 25px; color: #888; 
-            padding: 10px; border-radius: 5px; background: rgba(255,255,255,0.05);
-            min-width: 200px;
+        /* Navigatie sectie */
+        .nav-box {
+            margin-top: 30px; padding: 20px; background: #1a2a3a; 
+            width: 90%; max-width: 300px; border-radius: 15px;
+            border: 1px solid #334455;
         }
+        .nav-box h3 { margin-top: 0; font-size: 0.9rem; color: #ffcc00; text-transform: uppercase; }
+        .nav-buttons { display: flex; gap: 10px; justify-content: center; }
+        .nav-btn {
+            flex: 1; padding: 10px; border-radius: 8px; border: none;
+            font-size: 0.8rem; font-weight: bold; cursor: pointer;
+            text-decoration: none; color: white;
+        }
+        .google-btn { background: #4285F4; }
+        .apple-btn { background: #555; }
+
+        #debug { font-size: 0.75rem; margin-top: 20px; color: #666; }
     </style>
 </head>
 <body>
 
     <div class="logo-container">
-        <img src="logo.png" alt="BlingBling Logo">
+        <img src="logo.png" alt="BlingBling">
     </div>
 
     <div class="status-circle" id="circle">
-        <span id="status-text" style="font-size: 0.8rem; letter-spacing: 2px;">OFFLINE</span>
-        <div id="timer" style="font-size: 1.2rem; font-weight: bold; margin-top: 5px;">00:00</div>
+        <span id="status-text" style="font-size: 0.7rem; letter-spacing: 2px;">OFFLINE</span>
+        <div id="timer" style="font-size: 1.1rem; font-weight: bold; margin-top: 5px;">00:00</div>
     </div>
 
-    <input type="text" id="driverName" placeholder="Je naam (bijv. Chris)...">
-    
-    <button id="toggleBtn" onclick="toggleTracking()">START RIT</button>
+    <input type="text" id="driverName" placeholder="Naam bezorger...">
+    <button id="toggleBtn" class="main-btn" onclick="toggleTracking()">START RIT</button>
 
-    <div id="debug">Wachten op start...</div>
+    <div class="nav-box" id="navBox" style="display: none;">
+        <h3>Snel Navigeren</h3>
+        <input type="text" id="targetAddress" placeholder="Adres van klant..." style="width: 100%; font-size: 0.9rem; padding: 10px;">
+        <div class="nav-buttons">
+            <button class="nav-btn google-btn" onclick="openNav('google')">Google Maps</button>
+            <button class="nav-btn apple-btn" onclick="openNav('apple')">Kaarten</button>
+        </div>
+    </div>
+
+    <div id="debug">Systeem klaar voor gebruik</div>
 
     <script>
-        // DE NIEUWE API KEY
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
         
         let watchId = null;
         let startTime = null;
         let timerInterval = null;
+        let lastSendTime = 0;
+        let wakeLock = null;
 
-        function updateTimer() {
-            const now = new Date();
-            const diff = Math.floor((now - startTime) / 1000);
-            const mins = Math.floor(diff / 60).toString().padStart(2, '0');
-            const secs = (diff % 60).toString().padStart(2, '0');
-            document.getElementById('timer').innerText = mins + ":" + secs;
+        document.getElementById('driverName').value = localStorage.getItem('driverName') || "";
+
+        function openNav(type) {
+            const addr = encodeURIComponent(document.getElementById('targetAddress').value);
+            if (!addr) { alert("Type eerst even een adres in!"); return; }
+            
+            let url = type === 'google' 
+                ? `https://www.google.com/maps/dir/?api=1&destination=${addr}`
+                : `http://maps.apple.com/?daddr=${addr}`;
+            
+            window.open(url, '_blank');
         }
 
-        function toggleTracking() {
+        async function toggleTracking() {
             const btn = document.getElementById('toggleBtn');
             const nameInput = document.getElementById('driverName');
-            const debug = document.getElementById('debug');
+            const navBox = document.getElementById('navBox');
             const circle = document.getElementById('circle');
-            const statusText = document.getElementById('status-text');
-
-            if (!nameInput.value) { 
-                alert("Vul even je naam in voor je begint!"); 
-                return; 
-            }
 
             if (watchId === null) {
-                // --- START TRACKING ---
-                debug.innerText = "GPS zoeken...";
-                
-                watchId = navigator.geolocation.watchPosition(pos => {
-                    const payload = {
-                        name: nameInput.value,
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        timestamp: new Date().getTime()
-                    };
-                    
-                    // Verzend naar Ably
-                    channel.publish('pos', payload);
-                    
-                    debug.innerText = "Signaal verzonden om " + new Date().toLocaleTimeString();
-                    statusText.innerText = "LIVE";
-                    circle.classList.add('active-glow');
-                }, err => {
-                    debug.innerText = "GPS Fout: " + err.message;
-                    alert("Zet je GPS aan!");
-                }, { 
-                    enableHighAccuracy: true,
-                    maximumAge: 0
-                });
+                if (!nameInput.value) { alert("Vul je naam in!"); return; }
+                localStorage.setItem('driverName', nameInput.value);
 
-                // UI aanpassen
+                // Start WakeLock
+                if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
+
+                watchId = navigator.geolocation.watchPosition(pos => {
+                    const now = Date.now();
+                    if (now - lastSendTime > 5000) {
+                        channel.publish('pos', {
+                            name: nameInput.value,
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude
+                        });
+                        lastSendTime = now;
+                    }
+                    circle.classList.add('active-glow');
+                    document.getElementById('status-text').innerText = "LIVE";
+                }, null, { enableHighAccuracy: true });
+
                 btn.innerText = "STOP RIT";
                 btn.classList.add('stop-btn');
-                nameInput.disabled = true;
+                navBox.style.display = "block";
                 startTime = new Date();
-                timerInterval = setInterval(updateTimer, 1000);
-
+                timerInterval = setInterval(() => {
+                    const diff = Math.floor((new Date() - startTime) / 1000);
+                    document.getElementById('timer').innerText = 
+                        Math.floor(diff/60).toString().padStart(2,'0') + ":" + (diff%60).toString().padStart(2,'0');
+                }, 1000);
             } else {
-                // --- STOP TRACKING ---
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-                
-                clearInterval(timerInterval);
-                document.getElementById('timer').innerText = "00:00";
-                
-                btn.innerText = "START RIT";
-                btn.classList.remove('stop-btn');
-                circle.classList.remove('active-glow');
-                statusText.innerText = "OFFLINE";
-                nameInput.disabled = false;
-                debug.innerText = "Rit gestopt.";
+                location.reload(); // Snelste manier om alles te stoppen en te resetten
             }
         }
     </script>

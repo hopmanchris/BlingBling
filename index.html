@@ -8,26 +8,25 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        :root { --gold: #ffcc00; --bg: #000; --card: rgba(255, 255, 255, 0.07); --text: #ffffff; }
+        :root { --gold: #ffcc00; --bg: #f4f4f4; --sidebar-bg: #1a2a3a; --text-light: #ffffff; }
         
         * { box-sizing: border-box; }
-        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: var(--text-light); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* HEADER MET GROTER LOGO */
         header { 
             background: #000; padding: 15px; text-align: center; 
-            border-bottom: 2px solid var(--gold); height: 100px; /* Hoger voor groot logo */
+            border-bottom: 2px solid var(--gold); height: 110px; 
             display: flex; justify-content: center; align-items: center; flex-shrink: 0; z-index: 2000;
         }
-        header img { height: 75px; filter: drop-shadow(0 0 8px rgba(255,204,0,0.5)); }
+        header img { height: 85px; filter: drop-shadow(0 0 8px rgba(255,204,0,0.5)); }
         
-        .main-container { display: flex; flex-direction: column; flex-grow: 1; height: calc(100% - 100px); position: relative; overflow: hidden; }
+        .main-container { display: flex; flex-direction: column; flex-grow: 1; height: calc(100% - 110px); position: relative; overflow: hidden; }
         @media (min-width: 900px) { .main-container { flex-direction: row; } }
 
-        #map { flex-grow: 1; width: 100%; z-index: 1; background: #111; }
+        #map { flex-grow: 1; width: 100%; z-index: 1; background: #eee; }
         
         #sidebar { 
-            background: #1a2a3a; border-top: 1px solid #334455; 
+            background: var(--sidebar-bg); border-top: 1px solid #334455; 
             padding: 20px; height: 220px; flex-shrink: 0; 
             display: flex; flex-direction: column; z-index: 10; position: relative; 
         }
@@ -36,23 +35,26 @@
         }
 
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        h2 { font-size: 13px; color: var(--gold); margin: 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 800; }
+        h2 { font-size: 14px; color: var(--gold); margin: 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 800; }
 
-        /* Driver Card Styling */
         #driver-list { flex-grow: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
         .driver-card { 
-            background: var(--card); border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
             padding: 12px; border-radius: 10px; margin-bottom: 10px;
             display: flex; flex-direction: column; gap: 5px;
         }
         .driver-top { display: flex; justify-content: space-between; align-items: center; }
-        .driver-name { color: #00ff00; font-weight: bold; font-size: 15px; }
+        .driver-name { color: #00ff00; font-weight: bold; font-size: 16px; }
         .driver-eta { color: var(--gold); font-size: 12px; text-align: right; font-weight: 600; }
 
-        .progress-bg { background: rgba(0,0,0,0.3); height: 6px; border-radius: 3px; overflow: hidden; margin-top: 5px; border: 1px solid rgba(255,255,255,0.05); }
-        .progress-bar { background: var(--gold); height: 100%; width: 0%; box-shadow: 0 0 8px var(--gold); transition: width 1s ease-in-out; }
+        .progress-bg { background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 5px; }
+        .progress-bar { background: var(--gold); height: 100%; width: 0%; box-shadow: 0 0 8px var(--gold); transition: width 1s ease; }
 
-        /* System Live Badge */
+        /* Auto Icoon Marker */
+        .car-marker-container { text-align: center; }
+        .car-icon { font-size: 24px; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
+        .car-name-label { background: var(--gold); color: black; padding: 2px 6px; border-radius: 4px; font-weight: 900; font-size: 11px; border: 1px solid black; white-space: nowrap; margin-top: -2px; display: inline-block; }
+
         .sidebar-footer { display: flex; justify-content: flex-end; align-items: center; padding-top: 10px; margin-top: auto; }
         .status-dot { 
             padding: 6px 12px; border-radius: 4px; font-weight: 900; font-size: 10px; background: #000; color: #00ff00; 
@@ -65,9 +67,7 @@
             100% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.2); border-color: #008800; }
         }
         
-        .map-toggle { background: var(--gold); color: #000; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 10px; text-transform: uppercase; }
-        .hq-glow { animation: hq-pulse 2s infinite; }
-        @keyframes hq-pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+        .map-toggle { background: var(--gold); color: #000; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 10px; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -93,24 +93,25 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const hqPos = [52.22419, 5.37145];
-        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
         const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
+        // Starten op Licht Thema
         const map = L.map('map', { zoomControl: false }).setView(hqPos, 14);
-        darkLayer.addTo(map);
+        lightLayer.addTo(map);
 
         L.marker(hqPos, {
             icon: L.divIcon({
                 className: 'hq-marker',
-                html: '<div class="hq-glow" style="font-size: 28px; filter: drop-shadow(0 0 5px gold);">🏠</div>',
+                html: '<div style="font-size: 30px; filter: drop-shadow(0 0 5px gold);">🏠</div>',
                 iconSize: [30, 30], iconAnchor: [15, 15]
             })
         }).addTo(map);
 
-        let isDark = true;
+        let isDark = false;
         function toggleMap() {
-            if (isDark) { map.removeLayer(darkLayer); lightLayer.addTo(map); isDark = false; }
-            else { map.removeLayer(lightLayer); darkLayer.addTo(map); isDark = true; }
+            if (!isDark) { map.removeLayer(lightLayer); darkLayer.addTo(map); isDark = true; }
+            else { map.removeLayer(darkLayer); lightLayer.addTo(map); isDark = false; }
         }
 
         const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
@@ -130,8 +131,6 @@
             const { name, lat, lng } = msg.data;
             const dist = getDistance(lat, lng, hqPos[0], hqPos[1]);
             const eta = Math.ceil(dist * 2.5);
-            
-            // Progress bar (vol bij 0km, leeg bij 5km)
             const progress = Math.max(0, Math.min(100, (1 - (dist / 5)) * 100));
 
             if (!drivers[name]) {
@@ -149,9 +148,9 @@
 
                 drivers[name] = L.marker([lat, lng], {
                     icon: L.divIcon({
-                        className: 'car-label',
-                        html: `<div style="background:#ffcc00; color:#000; padding:2px 8px; border-radius:4px; font-weight:900; font-size:11px; border:1px solid #000; white-space:nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${name}</div>`,
-                        iconSize: [60, 20], iconAnchor: [30, 35]
+                        className: 'car-marker-container',
+                        html: `<span class="car-icon">🚗</span><div class="car-name-label">${name}</div>`,
+                        iconSize: [70, 40], iconAnchor: [35, 35]
                     })
                 }).addTo(map);
             } else {

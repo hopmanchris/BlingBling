@@ -3,181 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling Zender PRO (Self-Healing)</title>
+    <title>BlingBling Zender ULTIMATE</title>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body { 
-            font-family: -apple-system, system-ui, sans-serif; 
-            background: #000; color: white; 
-            display: flex; flex-direction: column; align-items: center;
-            min-height: 100vh; margin: 0; text-align: center; padding: 20px;
-        }
-        .logo-container { margin-bottom: 20px; }
-        .logo-container img { max-height: 50px; }
-        
-        .status-circle {
-            width: 120px; height: 120px; border-radius: 50%;
-            background: #111; border: 4px solid #333;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            margin-bottom: 20px; transition: all 0.5s ease;
-        }
-        
-        @keyframes pulse-record {
-            0% { transform: scale(1); box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); }
-            50% { transform: scale(1.05); box-shadow: 0 0 30px rgba(0, 255, 0, 0.6); }
-            100% { transform: scale(1); box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); }
-        }
-        .active-glow { animation: pulse-record 2s infinite ease-in-out; border-color: #00ff00 !important; }
-
-        input { 
-            padding: 15px; width: 90%; max-width: 300px; border-radius: 12px; border: 2px solid #333; 
-            margin-bottom: 15px; font-size: 1rem; text-align: center;
-            background: #111; color: white; outline: none;
-        }
-        
-        .main-btn { 
-            padding: 18px; font-size: 1.2rem; font-weight: bold;
-            background: #ffcc00; border: none; border-radius: 50px; 
-            cursor: pointer; color: black; width: 90%; max-width: 300px;
-        }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #000; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; text-align: center; padding: 20px; }
+        .status-circle { width: 120px; height: 120px; border-radius: 50%; background: #111; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; }
+        .active-glow { animation: pulse 2s infinite; border-color: #00ff00 !important; box-shadow: 0 0 30px rgba(0,255,0,0.5); }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        input { padding: 15px; width: 90%; max-width: 300px; border-radius: 12px; border: 2px solid #333; margin-bottom: 15px; background: #111; color: white; text-align: center; }
+        .main-btn { padding: 18px; font-size: 1.2rem; font-weight: bold; background: #ffcc00; border: none; border-radius: 50px; width: 90%; max-width: 300px; color: black; }
         .stop-btn { background: #ff4444 !important; color: white !important; }
-
-        .nav-box {
-            margin-top: 30px; padding: 20px; background: #1a2a3a; 
-            width: 90%; max-width: 300px; border-radius: 15px;
-            border: 1px solid #334455;
-        }
-        .nav-box h3 { margin-top: 0; font-size: 0.9rem; color: #ffcc00; text-transform: uppercase; }
-        .nav-buttons { display: flex; gap: 10px; justify-content: center; }
-        .nav-btn {
-            flex: 1; padding: 12px; border-radius: 8px; border: none;
-            font-size: 0.8rem; font-weight: bold; cursor: pointer;
-            text-decoration: none; color: white; display: inline-block;
-        }
-        .google-btn { background: #4285F4; }
-        .apple-btn { background: #555; }
-
-        #debug { font-size: 0.7rem; margin-top: 20px; color: #555; }
+        .nav-box { margin-top: 30px; padding: 20px; background: #1a2a3a; width: 90%; max-width: 300px; border-radius: 15px; border: 1px solid #334455; }
+        .nav-btn { padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; color: white; width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="logo-container"><img src="logo.png" alt="BlingBling"></div>
+    <div style="margin-bottom: 20px;"><img src="logo.png" style="max-height: 50px;"></div>
 
     <div class="status-circle" id="circle">
         <span id="status-text" style="font-size: 0.7rem; letter-spacing: 2px;">OFFLINE</span>
-        <div id="timer" style="font-size: 1.1rem; font-weight: bold; margin-top: 5px;">00:00</div>
+        <div id="timer" style="font-size: 1.1rem; font-weight: bold;">00:00</div>
     </div>
 
     <input type="text" id="driverName" placeholder="Naam bezorger...">
-    
-    <button id="toggleBtn" class="main-btn" onclick="handleButtonClick()">START RIT</button>
+    <button id="toggleBtn" class="main-btn" onclick="toggleTracking()">START RIT</button>
 
     <div class="nav-box" id="navBox" style="display: none;">
-        <h3>Snel Navigeren</h3>
-        <input type="text" id="targetAddress" placeholder="Adres van klant..." style="width: 100%; font-size: 0.9rem; padding: 10px;">
-        <div class="nav-buttons">
-            <button class="nav-btn google-btn" onclick="openNav('google')">Google Maps</button>
-            <button class="nav-btn apple-btn" onclick="openNav('apple')">Kaarten</button>
-        </div>
+        <input type="text" id="targetAddress" placeholder="Adres klant..." style="width: 100%;">
+        <button class="nav-btn" style="background: #4285F4;" onclick="openNav('google')">Open Google Maps</button>
     </div>
 
-    <div id="debug">Systeem stand-by</div>
+    <audio id="silentAudio" loop><source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3"></audio>
 
     <script>
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
-        
         let watchId = null;
-        let timerInterval = null;
-        let lastSendTime = 0;
-        let wakeLock = null;
-
-        // Laad opgeslagen data bij opstarten
-        window.onload = () => {
-            const savedName = localStorage.getItem('driverName');
-            if (savedName) document.getElementById('driverName').value = savedName;
-            
-            // CHECK: Was er een rit bezig?
-            if (localStorage.getItem('isTracking') === 'true') {
-                console.log("Rit herstellen...");
-                startTracking();
-            }
-        };
-
-        function handleButtonClick() {
-            if (watchId === null) startTracking();
-            else stopTracking();
-        }
-
-        async function startTracking() {
-            const nameInput = document.getElementById('driverName');
-            const btn = document.getElementById('toggleBtn');
-            const navBox = document.getElementById('navBox');
-            const circle = document.getElementById('circle');
-
-            if (!nameInput.value) { alert("Naam invullen aub!"); return; }
-            
-            // Opslaan dat we bezig zijn
-            localStorage.setItem('driverName', nameInput.value);
-            localStorage.setItem('isTracking', 'true');
-            if (!localStorage.getItem('startTime')) localStorage.setItem('startTime', Date.now());
-
-            // WakeLock aanvragen
-            if ('wakeLock' in navigator) {
-                try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
-            }
-
-            watchId = navigator.geolocation.watchPosition(pos => {
-                const now = Date.now();
-                if (now - lastSendTime > 5000) { // 5-seconden regel
-                    channel.publish('pos', {
-                        name: nameInput.value,
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude
-                    });
-                    lastSendTime = now;
-                    document.getElementById('debug').innerText = "Verzonden: " + new Date().toLocaleTimeString();
-                }
-                circle.classList.add('active-glow');
-                document.getElementById('status-text').innerText = "LIVE";
-            }, err => {
-                document.getElementById('debug').innerText = "GPS Fout: " + err.message;
-            }, { enableHighAccuracy: true, maximumAge: 0 });
-
-            btn.innerText = "STOP RIT";
-            btn.classList.add('stop-btn');
-            nameInput.disabled = true;
-            navBox.style.display = "block";
-            
-            startTimer();
-        }
-
-        function stopTracking() {
-            // Alles wissen uit geheugen
-            localStorage.removeItem('isTracking');
-            localStorage.removeItem('startTime');
-            if (wakeLock) wakeLock.release();
-            location.reload(); // Harde reset
-        }
-
-        function startTimer() {
-            const start = parseInt(localStorage.getItem('startTime'));
-            timerInterval = setInterval(() => {
-                const diff = Math.floor((Date.now() - start) / 1000);
-                const mins = Math.floor(diff/60).toString().padStart(2,'0');
-                const secs = (diff%60).toString().padStart(2,'0');
-                document.getElementById('timer').innerText = mins + ":" + secs;
-            }, 1000);
-        }
+        let lastSend = 0;
 
         function openNav(type) {
             const addr = encodeURIComponent(document.getElementById('targetAddress').value);
-            if (!addr) { alert("Typ eerst een adres!"); return; }
-            const url = type === 'google' 
-                ? `https://www.google.com/maps/dir/?api=1&destination=${addr}`
-                : `http://maps.apple.com/?daddr=${addr}`;
-            window.open(url, '_blank');
+            if (!addr) return alert("Vul adres in");
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${addr}`, '_blank');
+        }
+
+        async function toggleTracking() {
+            const audio = document.getElementById('silentAudio');
+            const btn = document.getElementById('toggleBtn');
+            
+            if (watchId === null) {
+                // 1. Speel stilte af om de CPU wakker te houden
+                audio.play().catch(e => console.log("Audio start pas na interactie"));
+                
+                // 2. Start GPS
+                watchId = navigator.geolocation.watchPosition(pos => {
+                    const now = Date.now();
+                    if (now - lastSend > 5000) {
+                        channel.publish('pos', {
+                            name: document.getElementById('driverName').value,
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude
+                        });
+                        lastSend = now;
+                    }
+                    document.getElementById('circle').classList.add('active-glow');
+                    document.getElementById('status-text').innerText = "LIVE (BG ACTIVE)";
+                }, null, { enableHighAccuracy: true });
+
+                btn.innerText = "STOP RIT";
+                btn.classList.add('stop-btn');
+                document.getElementById('navBox').style.display = "block";
+            } else {
+                location.reload();
+            }
         }
     </script>
 </body>

@@ -17,7 +17,7 @@
         header img { height: 40px; }
         
         .main-container { display: flex; flex-direction: column; flex-grow: 1; height: calc(100% - 60px); position: relative; overflow: hidden; }
-        #map { flex-grow: 1; width: 100%; z-index: 1; background: #111; }
+        #map { flex-grow: 1; width: 100%; z-index: 1; background: #eee; }
         
         #sidebar { 
             background: #1a2a3a; border-top: 1px solid #334455; 
@@ -38,29 +38,13 @@
         .driver-info { color: #00ff00; font-weight: bold; font-size: 14px; }
         .driver-eta { color: #ffcc00; font-size: 11px; text-align: right; font-weight: 600; line-height: 1.2; }
         
-        .driver-label { background: #ffcc00; color: #000; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: 1px solid #000; font-size: 10px; text-transform: uppercase; }
+        .driver-label { background: #ffcc00; color: #000; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: 1px solid #000; font-size: 10px; text-transform: uppercase; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .hq-label { background: rgba(0,0,0,0.8) !important; color: #ffcc00 !important; border: 1px solid #444 !important; font-weight: bold; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
         
-        .sidebar-footer {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            padding-top: 10px;
-            margin-top: auto;
-        }
-
+        .sidebar-footer { display: flex; justify-content: flex-end; align-items: center; padding-top: 10px; margin-top: auto; }
         .status-dot { 
-            padding: 4px 10px; 
-            border-radius: 4px; 
-            font-weight: 900; 
-            font-size: 9px; 
-            background: #000; 
-            color: #00ff00; 
-            border: 1px solid #00ff00;
-            text-transform: uppercase; 
-            letter-spacing: 1px;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-            animation: static-glow 2s infinite ease-in-out;
+            padding: 4px 10px; border-radius: 4px; font-weight: 900; font-size: 9px; background: #000; color: #00ff00; border: 1px solid #00ff00;
+            text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 0 10px rgba(0, 255, 0, 0.5); animation: static-glow 2s infinite ease-in-out;
         }
 
         @keyframes static-glow {
@@ -91,11 +75,25 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const hqPos = [52.22419, 5.37145];
-        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; Carto' });
         const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; Carto' });
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; Carto' });
 
+        // STANDAARD OP LICHT ZETTEN
         const map = L.map('map', { zoomControl: false }).setView(hqPos, 15);
-        darkLayer.addTo(map);
+        lightLayer.addTo(map);
+
+        let isDark = false; // Begint nu op licht
+        function toggleMap() {
+            if (!isDark) { 
+                map.removeLayer(lightLayer); 
+                darkLayer.addTo(map); 
+                isDark = true; 
+            } else { 
+                map.removeLayer(darkLayer); 
+                lightLayer.addTo(map); 
+                isDark = false; 
+            }
+        }
 
         L.marker(hqPos, {
             icon: L.divIcon({
@@ -105,13 +103,12 @@
             })
         }).addTo(map).bindTooltip("HQ", { permanent: true, direction: 'bottom', className: 'hq-label', offset: [0, 5] });
 
-        let isDark = true;
-        function toggleMap() {
-            if (isDark) { map.removeLayer(darkLayer); lightLayer.addTo(map); isDark = false; }
-            else { map.removeLayer(lightLayer); darkLayer.addTo(map); isDark = true; }
-        }
-
-        const carIcon = L.divIcon({ className: 'car-marker', html: '<div style="font-size: 24px; filter: drop-shadow(0 0 2px black);">🚗</div>', iconSize: [30, 30], iconAnchor: [15, 15] });
+        const carIcon = L.divIcon({ 
+            className: 'car-marker', 
+            html: '<div style="font-size: 24px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));">🚗</div>', 
+            iconSize: [30, 30], iconAnchor: [15, 15] 
+        });
+        
         const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
         const channel = ably.channels.get('tracking');
 
@@ -134,7 +131,13 @@
                 li.id = "li-" + name; li.className = "driver-item";
                 li.innerHTML = `<div class="driver-info">🚗 ${name}</div><div id="eta-${name}" class="driver-eta">${dist.toFixed(1)} km<br>${mins} min</div>`;
                 document.getElementById('driver-list').appendChild(li);
-                markers[name] = L.marker([lat, lng], { icon: carIcon }).addTo(map).bindTooltip(name, { permanent: true, direction: 'top', className: 'driver-label', offset: [0, -10] }).openTooltip();
+                
+                markers[name] = L.marker([lat, lng], { icon: carIcon }).addTo(map).bindTooltip(name, { 
+                    permanent: true, 
+                    direction: 'top', 
+                    className: 'driver-label', 
+                    offset: [0, -10] 
+                }).openTooltip();
             } else {
                 markers[name].setLatLng([lat, lng]);
                 document.getElementById(`eta-${name}`).innerHTML = `${dist.toFixed(1)} km<br>${mins} min`;

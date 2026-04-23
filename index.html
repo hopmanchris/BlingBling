@@ -10,45 +10,77 @@
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
 
     <style>
-        :root { --gold: #ffcc00; --bg: #000; }
+        :root { --gold: #ffcc00; --bg: #000; --sidebar-bg: #111d2b; --text: #ffffff; }
 
-        /* iPhone Fix: Voorkom scrollen en forceer full-screen */
         html, body { 
-            margin: 0; 
-            padding: 0; 
-            height: 100%; 
-            width: 100%; 
-            background: var(--bg); 
-            font-family: -apple-system, sans-serif;
-            overflow: hidden; 
-            position: fixed; 
+            margin: 0; padding: 0; height: 100%; width: 100%; 
+            background: var(--bg); font-family: -apple-system, sans-serif;
+            overflow: hidden; position: fixed; 
         }
 
-        /* HEADER IDENTIEK AAN PLANNING */
+        /* HEADER */
         header { 
-            background: #000; 
-            padding: 15px; 
-            text-align: center; 
-            border-bottom: 2px solid var(--gold); 
-            height: 110px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            z-index: 2000;
-            position: relative;
+            background: #000; padding: 15px; text-align: center; 
+            border-bottom: 2px solid var(--gold); height: 110px; 
+            display: flex; justify-content: center; align-items: center; 
+            z-index: 2000; position: relative;
         }
         header img { height: 85px; filter: drop-shadow(0 0 8px rgba(255,204,0,0.5)); }
 
-        /* KAART CONTAINER FIX VOOR IOS */
-        #map { 
-            position: absolute;
-            top: 110px; /* Precies onder de header */
-            bottom: 0;
+        /* MAIN LAYOUT */
+        .main-wrapper {
+            display: flex;
+            height: calc(100vh - 110px);
             width: 100%;
-            background: #111; /* Tijdelijke kleur tijdens laden */
+            position: absolute;
+            top: 110px;
         }
 
-        /* Marker Styling */
+        /* SIDEBAR (BEZORGERS) */
+        #sidebar {
+            width: 300px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid rgba(255,204,0,0.2);
+            overflow-y: auto;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @media (max-width: 768px) {
+            #sidebar { width: 100px; } /* Smaller op mobiel */
+            .bezorger-naam { display: none; } /* Alleen icoon op mobiel */
+        }
+
+        #sidebar h3 {
+            color: var(--gold);
+            text-align: center;
+            font-size: 1rem;
+            padding: 15px;
+            margin: 0;
+            border-bottom: 1px solid rgba(255,204,0,0.1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .bezorger-item {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            cursor: pointer;
+        }
+        .status-dot { width: 10px; height: 10px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 5px #00ff00; }
+
+        /* KAART */
+        #map { 
+            flex-grow: 1;
+            background: #0b0d10;
+        }
+
+        /* MARKER STYLING */
         .custom-marker {
             background: var(--gold);
             border: 2px solid #fff;
@@ -67,36 +99,35 @@
     <img src="logo.png" onerror="this.src='https://hopmanchris.github.io/BlingBling/logo.png'">
 </header>
 
-<div id="map"></div>
+<div class="main-wrapper">
+    <div id="sidebar">
+        <h3>Bezorgers</h3>
+        <div id="bezorgers-lijst"></div>
+    </div>
+
+    <div id="map"></div>
+</div>
 
 <script>
-    // 1. Initialiseer de kaart
-    // We zetten de zoom iets hoger voor mobiel overzicht
-    var map = L.map('map', {
-        zoomControl: false // Verplaatsen we naar rechts voor duimen
-    }).setView([52.24, 5.37], 13); 
-
+    // Kaart instellen
+    var map = L.map('map', { zoomControl: false }).setView([52.24, 5.37], 13); 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // 2. Donkere kaart stijl (Past bij BlingBling)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    // 3. Ably Verbinding
     const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
     const channel = ably.channels.get('tracking');
     const markers = {};
 
-    // 4. Luister naar locaties
     channel.subscribe('pos', (msg) => {
         const { id, name, lat, lon } = msg.data;
 
+        // Update of maak Marker
         if (markers[id]) {
-            // Update bestaande marker
             markers[id].setLatLng([lat, lon]);
         } else {
-            // Maak nieuwe marker met de eerste letter van de naam
             const icon = L.divIcon({
                 className: 'custom-marker',
                 html: name.charAt(0).toUpperCase(),
@@ -104,13 +135,19 @@
             });
             markers[id] = L.marker([lat, lon], { icon: icon }).addTo(map)
                 .bindPopup('<b>' + name + '</b>');
+
+            // Voeg toe aan zijbalk lijst
+            const lijst = document.getElementById('bezorgers-lijst');
+            const item = document.createElement('div');
+            item.className = 'bezorger-item';
+            item.innerHTML = `<div class="status-dot"></div> <span class="bezorger-naam">${name}</span>`;
+            item.onclick = () => map.setView([lat, lon], 16);
+            lijst.appendChild(item);
         }
     });
 
-    // iPhone Fix: Forceer kaart-update na 500ms
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 500);
+    // iPhone Fix: Forceer kaart-update
+    setTimeout(() => { map.invalidateSize(); }, 500);
 </script>
 
 </body>

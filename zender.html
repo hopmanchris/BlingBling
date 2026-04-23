@@ -3,22 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BlingBling Navigatie | Driver Pro</title>
+    <title>BlingBling Navigatie | Driver Pro v3.0</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     
     <style>
-        /* Design Systeem */
+        /* Design Systeem & Variabelen */
         :root { 
             --gold: #ffcc00; 
+            --gold-dark: #e6b800;
             --dark: #121212; 
             --light: #ffffff; 
             --red: #ff4444;
             --blue: #4285F4;
-            --gray: #f8f9fa;
+            --gray-bg: #f8f9fa;
+            --gray-border: #eeeeee;
+            --text-main: #1a1a1a;
+            --shadow-lg: 0 15px 40px rgba(0,0,0,0.3);
+            --radius-xl: 30px;
+            --radius-md: 15px;
         }
         
+        /* Reset & Global Styles */
         * { 
             box-sizing: border-box; 
             -webkit-tap-highlight-color: transparent; 
@@ -27,21 +34,24 @@
         }
         
         body, html { 
-            height: 100%; width: 100%; 
+            height: 100%; 
+            width: 100%; 
             background: var(--dark); 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             overflow: hidden; 
+            position: fixed;
         }
 
-        /* Kaart Sectie */
+        /* Kaart Sectie - Neemt bovenste deel in beslag */
         #map { 
             height: 55%; 
             width: 100%; 
             z-index: 1; 
-            filter: grayscale(0.2) contrast(1.1);
+            filter: grayscale(0.1) contrast(1.1);
+            transition: height 0.5s ease-in-out;
         }
         
-        /* Gebruikersinterface (Onderste Paneel) */
+        /* UI Paneel (Onderkant) */
         .ui-panel { 
             height: 45%; 
             background: var(--light); 
@@ -51,47 +61,114 @@
             gap: 15px; 
             border-top: 5px solid var(--gold); 
             position: relative; 
-            border-radius: 30px 30px 0 0; 
-            box-shadow: 0 -15px 40px rgba(0,0,0,0.3); 
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0; 
+            box-shadow: var(--shadow-lg); 
             z-index: 1000;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Status Dashboard */
+        /* Adres Suggesties Styling */
+        .search-container { 
+            position: relative; 
+            width: 100%; 
+        }
+
+        #suggestions {
+            position: absolute; 
+            bottom: 105%; 
+            left: 0; 
+            right: 0;
+            background: white; 
+            border-radius: var(--radius-md); 
+            border: 1px solid var(--gray-border);
+            margin-bottom: 10px; 
+            max-height: 220px; 
+            overflow-y: auto;
+            display: none; 
+            z-index: 2000; 
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .suggestion-item {
+            padding: 16px; 
+            border-bottom: 1px solid var(--gray-bg);
+            font-size: 0.95rem; 
+            cursor: pointer; 
+            color: var(--text-main);
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .suggestion-item:before { content: '📍'; font-size: 1.1rem; }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:active { background: #fff9e6; }
+
+        /* Dashboard Informatie Grid */
         .stats-grid { 
             display: none; 
             grid-template-columns: repeat(3, 1fr); 
-            gap: 10px; 
-            background: var(--gray); 
-            padding: 20px; 
+            gap: 12px; 
+            background: var(--gray-bg); 
+            padding: 22px; 
             border-radius: 20px; 
-            border: 1px solid #eee;
-            animation: fadeIn 0.5s ease;
+            border: 1px solid var(--gray-border);
+            animation: fadeIn 0.6s ease;
         }
 
         .stat-item { text-align: center; }
-        .stat-val { display: block; font-weight: 900; font-size: 1.4rem; color: var(--dark); }
-        .stat-label { font-size: 0.65rem; text-transform: uppercase; font-weight: 700; color: #888; letter-spacing: 1px; }
+        .stat-val { 
+            display: block; 
+            font-weight: 900; 
+            font-size: 1.5rem; 
+            color: var(--dark); 
+            line-height: 1;
+        }
+        .stat-label { 
+            font-size: 0.65rem; 
+            text-transform: uppercase; 
+            font-weight: 800; 
+            color: #999; 
+            letter-spacing: 1.2px;
+            margin-top: 5px;
+            display: block;
+        }
 
-        /* Input Velden */
-        .input-group { display: flex; flex-direction: column; gap: 10px; }
+        /* Input Groep */
+        .input-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+        }
         
         input { 
-            background: var(--gray); 
-            border: 2px solid #eee; 
+            background: var(--gray-bg); 
+            border: 2px solid var(--gray-border); 
             padding: 18px; 
-            border-radius: 15px; 
+            border-radius: var(--radius-md); 
             width: 100%; 
             box-sizing: border-box; 
             font-size: 1rem; 
             font-weight: 600;
             outline: none; 
-            transition: 0.3s;
+            transition: all 0.3s;
+            color: var(--text-main);
         }
         
-        input:focus { border-color: var(--gold); background: #fff; box-shadow: 0 0 0 4px rgba(255,204,0,0.1); }
+        input:focus { 
+            border-color: var(--gold); 
+            background: #fff; 
+            box-shadow: 0 0 0 4px rgba(255,204,0,0.1); 
+        }
 
-        /* Knoppen */
+        /* Knoppen Design */
         .btn { 
             padding: 20px; 
             border-radius: 50px; 
@@ -101,51 +178,61 @@
             cursor: pointer; 
             width: 100%; 
             text-transform: uppercase; 
-            letter-spacing: 1px;
-            transition: all 0.3s active;
+            letter-spacing: 1.5px;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         .btn-start { 
             background: var(--gold); 
             color: var(--dark);
-            box-shadow: 0 8px 25px rgba(255,204,0,0.4); 
+            box-shadow: 0 10px 25px rgba(255,204,0,0.35); 
         }
         
-        .btn-start:active { transform: scale(0.96); box-shadow: 0 4px 10px rgba(255,204,0,0.2); }
+        .btn-start:active { transform: scale(0.96); }
 
         .btn-stop { 
             background: var(--red); 
             color: white; 
             margin-top: auto;
-            box-shadow: 0 8px 25px rgba(255,68,68,0.3);
+            box-shadow: 0 8px 20px rgba(255,68,68,0.25);
         }
 
-        /* Custom Icons */
+        /* Markers & Icons */
         .finish-marker { 
             background: var(--red); 
             border: 3px solid white; 
             border-radius: 50% 50% 50% 0; 
             transform: rotate(-45deg); 
-            width: 40px !important; height: 40px !important; 
+            width: 42px !important; height: 42px !important; 
             display: flex; align-items: center; justify-content: center; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
-        .finish-marker span { transform: rotate(45deg); font-size: 20px; }
+        .finish-marker span { transform: rotate(45deg); font-size: 22px; }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Location Dot Animation */
         .user-dot {
-            width: 20px; height: 20px;
+            width: 24px; height: 24px;
             background: var(--blue);
-            border: 3px solid white;
+            border: 4px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 15px rgba(66, 133, 244, 0.5);
+            box-shadow: 0 0 20px rgba(66, 133, 244, 0.6);
         }
+
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Error Message Toast */
+        #error-toast {
+            position: fixed; top: 20px; left: 20px; right: 20px;
+            background: var(--red); color: white; padding: 15px;
+            border-radius: 12px; font-weight: 700; text-align: center;
+            z-index: 3000; display: none; animation: slideDown 0.4s ease;
+        }
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
     </style>
 </head>
 <body>
 
+    <div id="error-toast"></div>
     <div id="map"></div>
 
     <div class="ui-panel" id="ui">
@@ -165,43 +252,117 @@
         </div>
 
         <div class="input-group" id="setup">
-            <input type="text" id="driverName" placeholder="Jouw Naam (Bezorger)">
-            <input type="text" id="targetAddress" placeholder="Adres (bijv. Kerkstraat 10 Nijkerk)">
+            <input type="text" id="driverName" placeholder="Je Naam" maxlength="20">
+            <div class="search-container">
+                <div id="suggestions"></div>
+                <input type="text" id="targetAddress" placeholder="Waar ga je heen?" autocomplete="off">
+            </div>
         </div>
 
-        <button id="actionBtn" class="btn btn-start" onclick="initRit()">Start Rit</button>
+        <button id="actionBtn" class="btn btn-start" onclick="initRit()">Start Navigatie</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. Initialisatie
-        const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
+        /**
+         * CONFIGURATIE & INITIALISATIE
+         */
+        const ABLY_KEY = 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ';
+        const ably = new Ably.Realtime(ABLY_KEY);
         const channel = ably.channels.get('tracking');
         
-        let map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.2241, 5.3714], 15);
+        let map = L.map('map', { 
+            zoomControl: false, 
+            attributionControl: false,
+            dragging: true 
+        }).setView([52.2241, 5.3714], 15);
+
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
         let userMarker = L.marker([0,0], { 
-            icon: L.divIcon({ className: 'user-dot', iconSize: [20, 20], iconAnchor: [10, 10] }) 
+            icon: L.divIcon({ className: 'user-dot', iconSize: [24, 24], iconAnchor: [12, 12] }) 
         }).addTo(map);
 
-        let routeLine = L.polyline([], { color: '#4285F4', weight: 8, opacity: 0.8, lineCap: 'round' }).addTo(map);
+        let routeLine = L.polyline([], { 
+            color: '#4285F4', 
+            weight: 8, 
+            opacity: 0.8, 
+            lineCap: 'round',
+            lineJoin: 'round'
+        }).addTo(map);
+
         let destinationMarker = null;
-        let detectedCity = ""; // Hier wordt de plaatsnaam opgeslagen
-        let isStarted = false;
+        let detectedCity = "";
+        let debounceTimer = null;
         let watchId = null;
 
-        // 2. Rit Starten
+        /**
+         * ADRES SUGGESTIES LOGICA
+         */
+        const addressInput = document.getElementById('targetAddress');
+        const suggestionBox = document.getElementById('suggestions');
+
+        addressInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            const query = addressInput.value.trim();
+            
+            if (query.length < 3) { 
+                suggestionBox.style.display = 'none'; 
+                return; 
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=nl&addressdetails=1&limit=6`)
+                    .then(res => res.json())
+                    .then(data => {
+                        suggestionBox.innerHTML = '';
+                        if (data && data.length > 0) {
+                            suggestionBox.style.display = 'block';
+                            data.forEach(place => {
+                                const div = document.createElement('div');
+                                div.className = 'suggestion-item';
+                                // Formatteer het adres voor leesbaarheid
+                                const street = place.address.road || "";
+                                const houseNum = place.address.house_number || "";
+                                const city = place.address.city || place.address.town || place.address.village || "";
+                                const cleanLabel = `${street} ${houseNum}, ${city}`.replace(/^ ,/, "").trim();
+                                
+                                div.innerText = cleanLabel !== ", " ? cleanLabel : place.display_name;
+                                
+                                div.onclick = () => {
+                                    addressInput.value = div.innerText;
+                                    suggestionBox.style.display = 'none';
+                                    // Sla de stad alvast op
+                                    detectedCity = city;
+                                };
+                                suggestionBox.appendChild(div);
+                            });
+                        } else {
+                            suggestionBox.style.display = 'none';
+                        }
+                    })
+                    .catch(err => console.error("Suggestie fout:", err));
+            }, 400);
+        });
+
+        // Verberg suggesties als je ergens anders klikt
+        document.addEventListener('click', (e) => {
+            if (e.target !== addressInput) suggestionBox.style.display = 'none';
+        });
+
+        /**
+         * RIT FUNCTIES
+         */
         async function initRit() {
-            const name = document.getElementById('driverName').value;
-            const address = document.getElementById('targetAddress').value;
+            const name = document.getElementById('driverName').value.trim();
+            const address = addressInput.value.trim();
 
             if(!name || !address) {
-                alert("Vergeet je naam en het adres niet!");
+                showError("Vul aub je naam en het adres in.");
                 return;
             }
 
-            isStarted = true;
+            // UI Wisselen
             document.getElementById('setup').style.display = "none";
             document.getElementById('stats').style.display = "grid";
             
@@ -210,102 +371,113 @@
             btn.className = "btn btn-stop";
             btn.onclick = () => location.reload();
 
-            // Start GPS Tracking
+            // Start GPS en Verbinding
             startTracking(name, address);
         }
 
-        // 3. Geavanceerde Tracking & Route
         function startTracking(name, address) {
+            if (!navigator.geolocation) {
+                showError("GPS wordt niet ondersteund door je browser.");
+                return;
+            }
+
             watchId = navigator.geolocation.watchPosition(async (pos) => {
                 const { latitude, longitude, speed } = pos.coords;
-                const currentPos = [latitude, longitude];
+                const coords = [latitude, longitude];
 
-                // Update Marker & Kaart
-                userMarker.setLatLng(currentPos);
-                map.panTo(currentPos, { animate: true, duration: 1 });
+                userMarker.setLatLng(coords);
+                map.panTo(coords, { animate: true, duration: 1 });
 
-                // Update Speed UI
-                document.getElementById('val-speed').innerText = speed ? Math.round(speed * 3.6) : 0;
+                // Update Snelheid
+                const kmh = speed ? Math.round(speed * 3.6) : 0;
+                document.getElementById('val-speed').innerText = kmh;
 
-                // Haal route op als dit de eerste keer is
+                // Route ophalen bij de eerste fix
                 if (routeLine.getLatLngs().length === 0) {
                     await fetchRoute(latitude, longitude, address);
                 }
 
-                // Zend data naar Dashboard
+                // Zend naar Ably
                 channel.publish('pos', { 
                     name: name, 
                     lat: latitude, 
                     lng: longitude, 
                     destination: address,
-                    city: detectedCity // De gedetecteerde plaatsnaam meesturen
+                    city: detectedCity 
                 });
 
-                // Update Afstand & ETA
-                updateRitStats(latitude, longitude);
+                updateStats(latitude, longitude);
 
             }, (err) => {
-                console.error("GPS Fout:", err);
+                showError("GPS Signaal verloren...");
+                console.error(err);
             }, { 
-                enableHighAccuracy: true,
-                maximumAge: 1000 
+                enableHighAccuracy: true, 
+                maximumAge: 0 
             });
         }
 
-        // 4. Route & Plaatsnaam ophalen (Reverse Geocoding)
         async function fetchRoute(slat, slng, destAddr) {
             try {
-                // Stap A: Adres omzetten naar coördinaten + Plaatsnaam ophalen
                 const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(destAddr)}`);
                 const geoData = await geoRes.json();
 
-                if (geoData.length > 0) {
+                if (geoData && geoData.length > 0) {
                     const target = geoData[0];
                     const elat = target.lat;
                     const elng = target.lon;
 
-                    // De stad/dorp/gemeente uit de data halen
-                    detectedCity = target.address.city || target.address.town || target.address.village || target.address.suburb || "";
+                    // Update stad als dat nog niet gebeurd was via suggestie
+                    if (!detectedCity) {
+                        detectedCity = target.address.city || target.address.town || target.address.village || "";
+                    }
 
-                    // Marker op eindbestemming
+                    // Eind-marker plaatsen
                     if (destinationMarker) map.removeLayer(destinationMarker);
                     destinationMarker = L.marker([elat, elng], { 
                         icon: L.divIcon({ className: 'finish-marker', html: '<span>🏁</span>' }) 
                     }).addTo(map);
 
-                    // Stap B: Route berekenen via OSRM
+                    // Route berekenen (OSRM)
                     const routeRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${slng},${slat};${elng},${elat}?overview=full&geometries=geojson`);
                     const routeData = await routeRes.json();
 
                     if (routeData.routes && routeData.routes[0]) {
-                        const coords = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                        routeLine.setLatLngs(coords);
+                        const path = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                        routeLine.setLatLngs(path);
+                        map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
                     }
                 }
-            } catch (error) {
-                console.error("Fout bij ophalen route:", error);
+            } catch (e) {
+                console.error("Route fout:", e);
             }
         }
 
-        // 5. Statistieken updaten
-        function updateRitStats(lat, lng) {
-            const points = routeLine.getLatLngs();
-            if (points.length > 0) {
-                const target = points[points.length - 1];
-                const distanceInMeters = map.distance([lat, lng], target);
-                const distanceInKm = distanceInMeters / 1000;
+        function updateStats(lat, lng) {
+            const path = routeLine.getLatLngs();
+            if (path.length > 0) {
+                const destination = path[path.length - 1];
+                const meters = map.distance([lat, lng], destination);
+                const km = meters / 1000;
 
-                document.getElementById('val-dist').innerText = distanceInKm.toFixed(1) + " km";
+                document.getElementById('val-dist').innerText = km.toFixed(1) + " km";
                 
-                // ETA: Gemiddeld 2.5 min per km in de stad
-                const etaMinutes = Math.ceil(distanceInKm * 2.5) + 1;
-                document.getElementById('val-eta').innerText = etaMinutes;
+                // ETA: Gebaseerd op gemiddelde stadssnelheid (2.5 min/km)
+                const mins = Math.ceil(km * 2.5) + 1;
+                document.getElementById('val-eta').innerText = mins;
             }
         }
 
-        // Fix voor kaart-grootte bij laden
+        function showError(msg) {
+            const toast = document.getElementById('error-toast');
+            toast.innerText = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 4000);
+        }
+
+        // Kaart fix voor mobiele browsers
         window.onload = () => {
-            setTimeout(() => { map.invalidateSize(); }, 500);
+            setTimeout(() => { map.invalidateSize(); }, 600);
         };
     </script>
 </body>

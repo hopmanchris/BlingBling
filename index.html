@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BlingBling Dashboard | HQ Premium Control</title>
+    <title>BlingBling Dashboard | HQ Premium Control Center</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
@@ -191,6 +191,9 @@
             border-left: 4px solid var(--gold); 
             display: none;
             animation: slideIn 0.4s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
@@ -287,7 +290,6 @@
         
         .map-toggle:hover { background: #1a202c; transform: translateY(-1px); }
 
-        /* Lege lijst staat */
         .empty-msg {
             text-align: center; color: var(--text-muted); margin-top: 40px; font-style: italic; font-size: 14px;
         }
@@ -367,7 +369,7 @@
 
         // 3. Afstand Berekening (Haversine Formule)
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Straal van de aarde in km
+            const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -385,32 +387,38 @@
 
         // Verbindingsmonitor
         ably.connection.on('connected', () => {
-            console.log("Verbonden met Ably");
-            document.getElementById('sys-status').style.color = "var(--green)";
+            console.log("Dashboard Verbonden");
+            const statusBadge = document.getElementById('sys-status');
+            statusBadge.innerHTML = '<div class="status-dot"></div> System Online';
+            statusBadge.style.color = "var(--green)";
         });
 
         ably.connection.on('disconnected', () => {
-            document.getElementById('sys-status').innerHTML = '<div style="background:var(--red)" class="status-dot"></div> Offline';
-            document.getElementById('sys-status').style.color = "var(--red)";
+            const statusBadge = document.getElementById('sys-status');
+            statusBadge.innerHTML = '<div style="background:var(--red); box-shadow: 0 0 8px var(--red);" class="status-dot"></div> Offline';
+            statusBadge.style.color = "var(--red)";
+            statusBadge.style.animation = "none";
         });
 
         // 5. Inkomende Data Verwerken
         channel.subscribe('pos', (msg) => {
-            const { name, lat, lng, destination } = msg.data;
+            const { name, lat, lng, destination, city } = msg.data;
             const dist = calculateDistance(lat, lng, hqPos[0], hqPos[1]);
             
-            // ETA berekening: 2.5 min per km + 1 minuut marge
+            // ETA berekening
             const eta = Math.ceil(dist * 2.5) + 1;
             
-            // Voortgangsbalk (gebaseerd op 7km bereik)
+            // Voortgangsbalk
             const progress = Math.max(5, Math.min(100, (1 - (dist / 7)) * 100));
 
-            // Verwijder 'wachten' bericht als de eerste bezorger verschijnt
+            // Plaatsnaam toevoegen aan de weergave
+            const fullAddress = city ? `${destination}, ${city}` : destination;
+
             const emptyMsg = document.getElementById('no-drivers');
             if (emptyMsg) emptyMsg.remove();
 
             if (!drivers[name]) {
-                // Nieuwe Bezorger Kaart Aanmaken
+                // Nieuwe Bezorger Kaart
                 const card = document.createElement('li');
                 card.id = `card-${name}`;
                 card.className = "driver-card";
@@ -426,7 +434,7 @@
                             <span class="eta-val">ETA: ${eta} min</span>
                         </div>
                     </div>
-                    <div id="dest-tag-${name}" class="driver-dest-tag">📍 Naar: ${destination || '...'}</div>
+                    <div id="dest-tag-${name}" class="driver-dest-tag" style="display:block">📍 ${fullAddress || '...'}</div>
                     <div class="progress-container">
                         <div class="progress-bg">
                             <div class="progress-bar" id="bar-${name}" style="width: ${progress}%"></div>
@@ -437,7 +445,7 @@
 
                 // Marker op de kaart
                 const carIcon = L.divIcon({
-                    html: `<div style="text-align:center; transition: all 0.5s ease;">
+                    html: `<div style="text-align:center;">
                             <span style="font-size: 32px; display: block; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));">🚗</span>
                             <div style="background:white; color:black; padding:4px 10px; border-radius:8px; font-weight:900; font-size:13px; border:2px solid var(--gold); white-space:nowrap; margin-top:-6px; box-shadow:0 4px 10px rgba(0,0,0,0.15);">${name}</div>
                            </div>`,
@@ -446,7 +454,7 @@
                 
                 drivers[name] = L.marker([lat, lng], { icon: carIcon }).addTo(map);
             } else {
-                // Bestaande Bezorger Updaten
+                // Bestaande Bezorger Update
                 drivers[name].setLatLng([lat, lng]);
                 
                 const statsEl = document.getElementById(`stats-${name}`);
@@ -458,29 +466,28 @@
                 if (barEl) barEl.style.width = `${progress}%`;
                 
                 const destTag = document.getElementById(`dest-tag-${name}`);
-                if (destTag && destination && destination.trim() !== "") {
-                    destTag.innerText = `📍 Naar: ${destination}`;
+                if (destTag) {
+                    destTag.innerText = `📍 ${fullAddress}`;
                     destTag.style.display = "block";
                 }
                 
-                // Activeer Ping Animatie
+                // Ping Animatie
                 const ping = document.getElementById(`ping-${name}`);
                 if (ping) {
                     ping.classList.remove('active');
-                    void ping.offsetWidth; // Forceer hertekening voor animatie
+                    void ping.offsetWidth; 
                     ping.classList.add('active');
                 }
             }
         });
 
-        // 6. Window Resize & Fixes
+        // 6. Window Resize Fix
         window.addEventListener('resize', () => {
             map.invalidateSize();
         });
 
         window.onload = () => {
             setTimeout(() => { map.invalidateSize(); }, 600);
-            console.log("Dashboard volledig geladen.");
         };
     </script>
 </body>

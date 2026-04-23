@@ -9,7 +9,7 @@
         :root { --gold: #ffcc00; --bg: #ffffff; --header-bg: #000000; --text: #1a1a1a; }
         * { box-sizing: border-box; }
         body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; flex-direction: column; }
-        header { background: var(--header-bg); padding: 15px; text-align: center; border-bottom: 2px solid var(--gold); height: 110px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; z-index: 2000; }
+        header { background: var(--header-bg); padding: 15px; text-align: center; border-bottom: 2px solid var(--gold); height: 110px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
         header img { height: 85px; filter: drop-shadow(0 0 8px rgba(255,204,0,0.5)); }
         .admin-bar { background: #f4f4f4; padding: 15px; border-bottom: 1px solid #ddd; display: none; justify-content: center; gap: 10px; align-items: center; flex-wrap: wrap; }
         input, select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 14px; outline: none; }
@@ -19,26 +19,23 @@
         .column { flex: 1; min-width: 260px; background: white; border: 1px solid #eee; border-top: 5px solid var(--gold); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
         .column h2 { text-align: center; font-size: 1.3rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; padding-bottom: 12px; border-bottom: 2px solid #f4f4f4; color: #333; }
         .list { flex-grow: 1; overflow-y: auto; margin-top: 10px; counter-reset: rijder-counter; }
-        .name-tag { background: #fcfcfc; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); animation: fadeIn 0.3s ease; }
+        .name-tag { background: #fcfcfc; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .worker-info { display: flex; flex-direction: column; gap: 2px; }
         .worker-name { font-weight: 700; font-size: 1.1rem; }
         .worker-time { font-size: 0.85rem; color: #b8860b; font-weight: 600; background: #fff9e6; padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .remove-btn { color: #ff4444; cursor: pointer; font-weight: bold; font-size: 22px; display: none; line-height: 1; }
+        .remove-btn { color: #ff4444; cursor: pointer; font-weight: bold; font-size: 22px; display: none; }
         body.admin-mode .remove-btn { display: block; }
-        #col-rijden .name-tag::before { counter-increment: rijder-counter; content: counter(rijder-counter) "."; color: #999; font-weight: bold; margin-right: 12px; font-size: 1.1rem; }
-        .lock-btn { position: fixed; bottom: 25px; left: 25px; background: var(--header-bg); color: var(--gold); border: 2px solid var(--gold); padding: 12px; border-radius: 50%; font-size: 22px; cursor: pointer; z-index: 3000; box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; width: 55px; height: 55px; transition: transform 0.2s; }
+        #col-rijden .name-tag::before { counter-increment: rijder-counter; content: counter(rijder-counter) "."; color: #999; font-weight: bold; margin-right: 12px; }
+        .lock-btn { position: fixed; bottom: 25px; left: 25px; background: var(--header-bg); color: var(--gold); border: 2px solid var(--gold); padding: 12px; border-radius: 50%; font-size: 22px; cursor: pointer; z-index: 3000; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-<header onclick="location.reload()">
-    <img src="logo.png" onerror="this.src='https://via.placeholder.com/200x80?text=BlingBling'">
-</header>
+<header onclick="location.reload()"><img src="logo.png"></header>
 
 <div class="admin-bar" id="adminBar">
     <input type="text" id="nameInput" placeholder="Naam...">
-    <input type="text" id="timeInput" placeholder="Tijd (bijv. 08:00)..." style="width: 140px;">
+    <input type="text" id="timeInput" placeholder="Tijd..." style="width: 100px;">
     <select id="groupSelect">
         <option value="carwash">CARWASH</option>
         <option value="vip">VIP</option>
@@ -61,84 +58,69 @@
 
 <script>
     const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
-    const channel = ably.channels.get('planning', { params: { rewind: '100' } });
+    const channel = ably.channels.get('planning');
+    let isAdmin = false;
 
-    // 1. Laden vanuit lokaal geheugen bij opstarten
-    window.onload = () => {
-        const saved = localStorage.getItem('bling_data');
-        if (saved) {
-            const items = JSON.parse(saved);
-            items.forEach(item => renderPerson(item));
-        }
-    };
-
-    // 2. Opslaan naar lokaal geheugen
-    function updateLocal() {
-        const items = [];
-        document.querySelectorAll('.name-tag').forEach(tag => {
-            const name = tag.querySelector('.worker-name').innerText;
-            const timeEl = tag.querySelector('.worker-time');
-            const time = timeEl ? timeEl.innerText : '';
-            const group = tag.closest('.column').id.replace('col-', '');
-            items.push({ name, time, group, id: tag.id });
-        });
-        localStorage.setItem('bling_data', JSON.stringify(items));
-    }
-
+    // 1. Check wachtwoord
     function checkPass() {
-        const ww = prompt("Voer wachtwoord in voor beheer:");
+        const ww = prompt("Wachtwoord:");
         if (ww === "bling123") {
+            isAdmin = true;
             document.body.classList.add('admin-mode');
             document.getElementById('adminBar').style.display = 'flex';
             document.getElementById('lockIcon').innerHTML = "🔓";
-            document.getElementById('lockIcon').style.borderColor = "#00ff00";
-        } else {
-            alert("Fout wachtwoord");
         }
     }
-    
-    function addPerson() {
-        const nInput = document.getElementById('nameInput');
-        const tInput = document.getElementById('timeInput');
-        const name = nInput.value.trim();
-        const time = tInput.value.trim();
-        const group = document.getElementById('groupSelect').value;
-        if (!name) return;
-        
-        channel.publish('add', { name, time, group, id: "id-" + Date.now() });
-        nInput.value = ''; tInput.value = ''; nInput.focus();
-    }
 
+    // 2. Persoon renderen op scherm
     function renderPerson(data) {
-        const { name, time, group, id } = data;
-        const list = document.querySelector(`#col-${group} .list`);
-        if (!list || document.getElementById(id)) return;
-
+        if (document.getElementById(data.id)) return;
+        const list = document.querySelector(`#col-${data.group} .list`);
         const div = document.createElement('div');
         div.className = 'name-tag';
-        div.id = id;
-        const timeHTML = time ? `<span class="worker-time">${time}</span>` : '';
-        div.innerHTML = `<div class="worker-info"><span class="worker-name">${name}</span>${timeHTML}</div><div class="remove-btn" onclick="removeMember('${id}')">×</div>`;
+        div.id = data.id;
+        div.innerHTML = `<div class="worker-info"><span class="worker-name">${data.name}</span>${data.time ? `<span class="worker-time">${data.time}</span>` : ''}</div><div class="remove-btn" onclick="removeMember('${data.id}')">×</div>`;
         list.appendChild(div);
-        updateLocal();
     }
 
-    channel.subscribe('add', (msg) => {
-        renderPerson(msg.data);
-    });
-
-    function removeMember(id) {
-        channel.publish('remove', { id });
+    // 3. Acties versturen
+    function addPerson() {
+        const name = document.getElementById('nameInput').value.trim();
+        const time = document.getElementById('timeInput').value.trim();
+        const group = document.getElementById('groupSelect').value;
+        if (name) channel.publish('add', { name, time, group, id: "id-" + Date.now() });
+        document.getElementById('nameInput').value = '';
     }
 
-    channel.subscribe('remove', (msg) => {
-        const el = document.getElementById(msg.data.id);
-        if (el) {
-            el.remove();
-            updateLocal();
+    function removeMember(id) { channel.publish('remove', { id }); }
+
+    // 4. Luisteren naar updates
+    channel.subscribe('add', (msg) => renderPerson(msg.data));
+    channel.subscribe('remove', (msg) => { const el = document.getElementById(msg.data.id); if (el) el.remove(); });
+
+    // --- DE SYNC TRUC ---
+    // Als iemand de pagina opent, vraagt hij om de huidige lijst
+    channel.subscribe('request-sync', () => {
+        if (isAdmin) {
+            const currentList = [];
+            document.querySelectorAll('.name-tag').forEach(tag => {
+                const name = tag.querySelector('.worker-name').innerText;
+                const time = tag.querySelector('.worker-time')?.innerText || '';
+                const group = tag.closest('.column').id.replace('col-', '');
+                currentList.push({ name, time, group, id: tag.id });
+            });
+            channel.publish('sync-data', currentList);
         }
     });
-</script>
 
+    channel.subscribe('sync-data', (msg) => {
+        msg.data.forEach(item => renderPerson(item));
+    });
+
+    // Zodra de pagina geladen is, vraag om data
+    window.onload = () => {
+        setTimeout(() => { channel.publish('request-sync', {}); }, 1000);
+    };
+</script>
 </body>
 </html>

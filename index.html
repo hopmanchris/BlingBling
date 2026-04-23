@@ -16,7 +16,7 @@
         body, html { 
             margin: 0; padding: 0; height: 100%; 
             background: #000; color: white; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             overflow: hidden; 
         }
         
@@ -30,22 +30,20 @@
         .main-container { display: flex; flex-direction: column; height: calc(100vh - 60px); }
         #map { flex: 1; width: 100%; z-index: 1; background: #111; }
 
-        /* Mobiele Namenlijst onderaan */
         #sidebar { 
             background: #0a0a0a; border-top: 1px solid #333; 
             padding: 15px; overflow-y: auto; max-height: 150px;
         }
 
-        /* Desktop weergave */
         @media (min-width: 769px) {
             .main-container { flex-direction: row; }
             #sidebar { width: 300px; height: 100%; border-top: none; border-right: 1px solid #333; max-height: none; }
         }
 
-        h2 { font-size: 12px; color: #ffcc00; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; }
-        .driver-item { padding: 8px 0; border-bottom: 1px solid #222; color: #00ff00; font-weight: bold; font-size: 14px; }
+        h2 { font-size: 14px; color: #ffcc00; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 800; }
+        .driver-item { padding: 8px 0; border-bottom: 1px solid #222; color: #00ff00; font-weight: bold; font-size: 14px; display: flex; align-items: center; }
+        .driver-item::before { content: '🚗'; margin-right: 10px; font-size: 12px; }
         
-        /* De Naam-labels op de kaart */
         .driver-label { 
             background: #ffcc00; color: #000; font-weight: 800; 
             padding: 2px 8px; border-radius: 4px; border: 1px solid #000; 
@@ -58,6 +56,14 @@
             background: #ff0000; color: white;
         }
         .online { background: #00ff00; color: #000; box-shadow: 0 0 10px #00ff00; }
+
+        /* Kaartwissel knop */
+        .map-toggle {
+            position: absolute; top: 75px; right: 15px; z-index: 1000;
+            background: #ffcc00; color: #000; border: none; padding: 8px 12px;
+            border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
@@ -65,8 +71,9 @@
     
     <div class="main-container">
         <div id="map"></div>
+        <button class="map-toggle" onclick="toggleMap()">MODUS: DONKER</button>
         <div id="sidebar">
-            <h2>Live Crew</h2>
+            <h2>Bezorgers</h2>
             <ul id="driver-list" style="list-style: none; padding: 0; margin: 0;"></ul>
         </div>
     </div>
@@ -76,14 +83,32 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const statusBox = document.getElementById('status-box');
+        const mapBtn = document.querySelector('.map-toggle');
         
-        // Donkere Kaart Setup
-        const map = L.map('map', { zoomControl: false }).setView([52.247, 5.378], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
+        // Kaartlagen definiëren
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap' });
+        const lightLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
 
-        // Bezorgauto Icoon
+        const map = L.map('map', { zoomControl: false }).setView([52.247, 5.378], 14);
+        darkLayer.addTo(map);
+
+        let isDark = true;
+        function toggleMap() {
+            if (isDark) {
+                map.removeLayer(darkLayer);
+                lightLayer.addTo(map);
+                mapBtn.innerText = "MODUS: LICHT";
+                mapBtn.style.background = "#fff";
+                isDark = false;
+            } else {
+                map.removeLayer(lightLayer);
+                darkLayer.addTo(map);
+                mapBtn.innerText = "MODUS: DONKER";
+                mapBtn.style.background = "#ffcc00";
+                isDark = true;
+            }
+        }
+
         const carIcon = L.divIcon({
             className: 'car-marker',
             html: '<div style="font-size: 24px; filter: drop-shadow(0 0 2px black);">🚗</div>',
@@ -106,13 +131,11 @@
             const pos = [lat, lng];
 
             if (!markers[name]) {
-                // Toevoegen aan lijst onderaan
                 const li = document.createElement('li');
                 li.className = "driver-item";
-                li.innerText = "● " + name;
+                li.innerText = name;
                 document.getElementById('driver-list').appendChild(li);
 
-                // Auto op de kaart
                 markers[name] = L.marker(pos, { icon: carIcon }).addTo(map)
                     .bindTooltip(name, { permanent: true, direction: 'top', className: 'driver-label', offset: [0, -10] })
                     .openTooltip();

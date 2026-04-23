@@ -11,12 +11,11 @@
         
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        /* iPhone Fix: Forceer de pagina om exact het scherm te vullen */
         body, html { 
             margin: 0; padding: 0; height: 100%; width: 100%; 
             background: var(--bg); color: var(--text); 
             font-family: 'Inter', -apple-system, sans-serif; 
-            overflow: hidden; position: fixed; /* Voorkomt 'bouncen' op iOS */
+            overflow: hidden; position: fixed;
         }
         
         header { 
@@ -26,20 +25,17 @@
         }
         header img { height: 85px; filter: drop-shadow(0 0 10px rgba(255,204,0,0.3)); cursor: pointer; }
         
-        /* Container die de rest van de ruimte pakt */
         .main-container { 
             display: flex; 
             flex-direction: column; 
-            height: calc(100% - 110px); /* Precies de ruimte onder de header */
+            height: calc(100% - 110px);
             width: 100%;
         }
 
-        /* Op grotere schermen (PC/iPad) zijbalk links */
         @media (min-width: 900px) { 
             .main-container { flex-direction: row; } 
         }
 
-        /* Kaart vult de beschikbare ruimte */
         #map { 
             flex-grow: 1; 
             width: 100%; 
@@ -48,11 +44,10 @@
             position: relative;
         }
         
-        /* Zijbalk styling */
         #sidebar { 
             background: var(--sidebar-bg); 
-            width: 100%; /* Mobiel: volle breedte onderaan */
-            height: 300px; /* Mobiel: vaste hoogte */
+            width: 100%; 
+            height: 300px; 
             border-top: 1px solid rgba(255,255,255,0.1);
             padding: 20px; 
             display: flex; 
@@ -61,7 +56,6 @@
             overflow-y: auto;
         }
 
-        /* PC-scherm aanpassingen voor zijbalk */
         @media (min-width: 900px) { 
             #sidebar { 
                 width: 380px; 
@@ -86,6 +80,19 @@
         .driver-top { display: flex; justify-content: space-between; align-items: center; }
         .driver-name { color: var(--green); font-weight: bold; font-size: 17px; display: flex; align-items: center; gap: 8px; }
         
+        /* Nieuwe styling voor de bestemming in de lijst */
+        .driver-dest-tag {
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--gold);
+            font-weight: 800;
+            background: rgba(255,204,0,0.15);
+            padding: 6px 10px;
+            border-radius: 6px;
+            border-left: 3px solid var(--gold);
+            display: none; /* Standaard uit, tonen bij data */
+        }
+
         .ping-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; opacity: 0; }
         .ping-dot.active { animation: pulse-green 1s ease-out; }
         @keyframes pulse-green { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(3); } }
@@ -105,13 +112,13 @@
     </style>
 </head>
 <body>
-    <header onclick="resetView()"><img src="logo.png" onerror="this.src='https://hopmanchris.github.io/BlingBling/logo.png'"></header>
+    <header onclick="resetView()"><img src="https://hopmanchris.github.io/BlingBling/logo.png"></header>
     
     <div class="main-container">
         <div id="map"></div>
         <div id="sidebar">
             <div class="sidebar-header">
-                <h2>Bezorgers</h2>
+                <h2>Bezorgers Live</h2>
                 <button class="map-toggle" onclick="toggleMap()">Kaart Wisselen</button>
             </div>
             <ul id="driver-list"></ul>
@@ -126,7 +133,7 @@
         const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
         const map = L.map('map', { zoomControl: false }).setView(hqPos, 14);
-        darkLayer.addTo(map); // Standaard donker voor de Bling look
+        darkLayer.addTo(map);
 
         // HQ Marker
         L.marker(hqPos, {
@@ -148,6 +155,7 @@
         const channel = ably.channels.get('tracking');
         let drivers = {};
 
+        // Haversine formule voor km berekening
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2-lat1) * Math.PI/180;
@@ -157,7 +165,7 @@
         }
 
         channel.subscribe('pos', (msg) => {
-            const { name, lat, lng } = msg.data;
+            const { name, lat, lng, destination } = msg.data;
             const dist = getDistance(lat, lng, hqPos[0], hqPos[1]);
             const eta = Math.ceil(dist * 2.5);
             const progress = Math.max(0, Math.min(100, (1 - (dist / 6)) * 100));
@@ -168,7 +176,6 @@
                 card.className = "driver-card";
                 card.onclick = () => {
                     map.flyTo([lat, lng], 17, { duration: 1.5 });
-                    // Op mobiel: Scroll even naar de kaart als je op een naam tikt
                     if (window.innerWidth < 900) { window.scrollTo({top: 0, behavior: 'smooth'}); }
                 };
                 card.innerHTML = `
@@ -176,6 +183,7 @@
                         <span class="driver-name"><div class="ping-dot" id="ping-${name}"></div>🚗 ${name}</span>
                         <span class="driver-eta" id="stats-${name}">${dist.toFixed(1)} km<br>${eta} min</span>
                     </div>
+                    <div id="dest-tag-${name}" class="driver-dest-tag">📍 Onderweg: ${destination || ''}</div>
                     <div class="progress-bg"><div class="progress-bar" id="bar-${name}" style="width: ${progress}%"></div></div>
                 `;
                 document.getElementById('driver-list').appendChild(card);
@@ -187,9 +195,19 @@
                     })
                 }).addTo(map);
             } else {
+                // Update bestaande marker en kaartje
                 drivers[name].setLatLng([lat, lng]);
                 document.getElementById(`stats-${name}`).innerHTML = `${dist.toFixed(1)} km<br>${eta} min`;
                 document.getElementById(`bar-${name}`).style.width = `${progress}%`;
+                
+                // Bestemming updaten
+                const destTag = document.getElementById(`dest-tag-${name}`);
+                if (destination && destination.trim() !== "") {
+                    destTag.innerText = `📍 Onderweg: ${destination}`;
+                    destTag.style.display = "block";
+                } else {
+                    destTag.style.display = "none";
+                }
                 
                 const ping = document.getElementById(`ping-${name}`);
                 if (ping) {
@@ -200,7 +218,6 @@
             }
         });
 
-        // iPhone Fix: Forceer kaartherstel bij laden
         window.onload = () => {
             setTimeout(() => { map.invalidateSize(); }, 500);
         };

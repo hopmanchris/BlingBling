@@ -2,28 +2,43 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling Dashboard | HQ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BlingBling Dashboard | HQ Premium</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        :root { --gold: #ffcc00; --bg: #000; --sidebar-bg: #111d2b; --text: #ffffff; --green: #00ff00; }
+        :root { 
+            --gold: #ffcc00; 
+            --bg: #f0f2f5; 
+            --sidebar-bg: #ffffff; 
+            --text: #1a1a1a; 
+            --green: #28a745; 
+            --card-bg: #ffffff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
         
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+            margin: 0; padding: 0;
+        }
         
         body, html { 
-            margin: 0; padding: 0; height: 100%; width: 100%; 
+            height: 100%; width: 100%; 
             background: var(--bg); color: var(--text); 
-            font-family: 'Inter', -apple-system, sans-serif; 
+            font-family: 'Inter', -apple-system, system-ui, sans-serif; 
             overflow: hidden; position: fixed;
         }
         
         header { 
-            background: #000; padding: 15px; border-bottom: 2px solid var(--gold); height: 110px; 
-            display: flex; justify-content: center; align-items: center; z-index: 2000;
-            position: relative;
+            background: #ffffff; padding: 0 20px; 
+            border-bottom: 3px solid var(--gold); height: 110px; 
+            display: flex; justify-content: center; align-items: center; 
+            z-index: 2000; position: relative;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
         }
-        header img { height: 85px; filter: drop-shadow(0 0 10px rgba(255,204,0,0.3)); cursor: pointer; }
+        header img { height: 80px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); cursor: pointer; transition: 0.3s; }
+        header img:hover { transform: scale(1.02); }
         
         .main-container { 
             display: flex; 
@@ -40,75 +55,156 @@
             flex-grow: 1; 
             width: 100%; 
             z-index: 1; 
-            background: #222; 
+            background: #e5e5e5; 
             position: relative;
         }
         
         #sidebar { 
             background: var(--sidebar-bg); 
             width: 100%; 
-            height: 300px; 
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding: 20px; 
+            height: 350px; 
+            border-top: 1px solid rgba(0,0,0,0.05);
+            padding: 25px; 
             display: flex; 
             flex-direction: column; 
             z-index: 10;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
         @media (min-width: 900px) { 
             #sidebar { 
-                width: 380px; 
+                width: 400px; 
                 height: 100%; 
                 border-top: none; 
-                border-left: 1px solid rgba(255,255,255,0.1); 
+                border-left: 1px solid rgba(0,0,0,0.05); 
+                box-shadow: -5px 0 20px rgba(0,0,0,0.03);
             } 
         }
 
-        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        h2 { font-size: 13px; color: var(--gold); margin: 0; text-transform: uppercase; letter-spacing: 3px; font-weight: 900; }
-
-        #driver-list { flex-grow: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        .sidebar-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 25px; 
+        }
         
+        h2 { 
+            font-size: 14px; 
+            color: #444; 
+            margin: 0; 
+            text-transform: uppercase; 
+            letter-spacing: 4px; 
+            font-weight: 900; 
+        }
+
+        #driver-list { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            list-style: none; 
+            padding-right: 5px;
+        }
+        
+        /* Scrollbar Styling */
+        #driver-list::-webkit-scrollbar { width: 6px; }
+        #driver-list::-webkit-scrollbar-track { background: transparent; }
+        #driver-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+
         .driver-card { 
-            background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255,255,255,0.08);
-            padding: 18px; border-radius: 14px; margin-bottom: 15px; cursor: pointer;
+            background: var(--card-bg); 
+            border: 1px solid #eee;
+            padding: 20px; 
+            border-radius: 16px; 
+            margin-bottom: 15px; 
+            cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
-        .driver-card:hover { background: rgba(255,255,255,0.08); border-color: var(--gold); }
+        .driver-card:hover { 
+            border-color: var(--gold); 
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+        }
 
-        .driver-top { display: flex; justify-content: space-between; align-items: center; }
-        .driver-name { color: var(--green); font-weight: bold; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+        .driver-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .driver-name { 
+            color: var(--text); 
+            font-weight: 800; 
+            font-size: 18px; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+        }
         
-        /* Nieuwe styling voor de bestemming in de lijst */
         .driver-dest-tag {
-            margin-top: 10px;
+            margin-top: 12px;
             font-size: 13px;
-            color: var(--gold);
-            font-weight: 800;
-            background: rgba(255,204,0,0.15);
-            padding: 6px 10px;
-            border-radius: 6px;
-            border-left: 3px solid var(--gold);
-            display: none; /* Standaard uit, tonen bij data */
+            color: #555;
+            font-weight: 700;
+            background: #fff9e6;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--gold);
+            display: none;
+            animation: fadeIn 0.5s ease;
         }
 
-        .ping-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; opacity: 0; }
-        .ping-dot.active { animation: pulse-green 1s ease-out; }
-        @keyframes pulse-green { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(3); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        .driver-eta { color: var(--gold); font-size: 12px; text-align: right; font-weight: 700; line-height: 1.2; }
+        .ping-dot { width: 10px; height: 10px; background: var(--green); border-radius: 50%; opacity: 0; }
+        .ping-dot.active { animation: pulse-green 1.2s ease-out; }
+        @keyframes pulse-green { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(3.5); } }
 
-        .progress-bg { background: rgba(0,0,0,0.4); height: 8px; border-radius: 10px; margin-top: 12px; border: 1px solid rgba(255,255,255,0.05); }
-        .progress-bar { background: var(--gold); height: 100%; border-radius: 10px; width: 0%; box-shadow: 0 0 15px rgba(255,204,0,0.4); transition: width 1.5s ease; }
+        .driver-eta { 
+            color: #777; 
+            font-size: 12px; 
+            text-align: right; 
+            font-weight: 700; 
+            line-height: 1.4;
+        }
+        .eta-val { color: var(--gold); font-size: 14px; display: block; }
+
+        .progress-bg { 
+            background: #f0f0f0; 
+            height: 10px; 
+            border-radius: 20px; 
+            margin-top: 15px; 
+            overflow: hidden;
+            border: 1px solid #ebebeb;
+        }
+        .progress-bar { 
+            background: linear-gradient(90deg, var(--gold), #ffdb4d); 
+            height: 100%; 
+            width: 0%; 
+            transition: width 2s cubic-bezier(0.1, 0, 0.3, 1); 
+        }
 
         .status-badge { 
-            padding: 8px 16px; border-radius: 6px; font-weight: 900; font-size: 11px; background: #000; color: var(--green); 
-            border: 1px solid var(--green); text-transform: uppercase; letter-spacing: 1px;
-            margin-top: 15px; align-self: center;
+            padding: 10px 20px; 
+            border-radius: 10px; 
+            font-weight: 900; 
+            font-size: 11px; 
+            background: #f8f9fa; 
+            color: #999; 
+            border: 1px solid #eee; 
+            text-transform: uppercase; 
+            letter-spacing: 2px;
+            margin-top: 20px; 
+            align-self: center;
         }
 
-        .map-toggle { background: var(--gold); color: #000; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 800; cursor: pointer; font-size: 10px; text-transform: uppercase; }
+        .map-toggle { 
+            background: #1a1a1a; 
+            color: #fff; 
+            border: none; 
+            padding: 10px 16px; 
+            border-radius: 8px; 
+            font-weight: 800; 
+            cursor: pointer; 
+            font-size: 11px; 
+            text-transform: uppercase;
+            transition: 0.2s;
+        }
+        .map-toggle:hover { background: #333; }
     </style>
 </head>
 <body>
@@ -118,109 +214,137 @@
         <div id="map"></div>
         <div id="sidebar">
             <div class="sidebar-header">
-                <h2>Bezorgers Live</h2>
-                <button class="map-toggle" onclick="toggleMap()">Kaart Wisselen</button>
+                <h2>Live Tracking</h2>
+                <button class="map-toggle" id="btnToggle" onclick="toggleMap()">Donkere Kaart</button>
             </div>
             <ul id="driver-list"></ul>
-            <div class="status-badge">System Live</div>
+            <div class="status-badge" id="sys-status">System Online</div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Configuratie
         const hqPos = [52.22419, 5.37145];
         const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
         const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
-        const map = L.map('map', { zoomControl: false }).setView(hqPos, 14);
-        darkLayer.addTo(map);
+        const map = L.map('map', { 
+            zoomControl: false,
+            tap: false // iPhone fix
+        }).setView(hqPos, 14);
+
+        lightLayer.addTo(map); // Standaard Licht
 
         // HQ Marker
-        L.marker(hqPos, {
-            icon: L.divIcon({
-                html: '<div style="font-size: 30px; filter: drop-shadow(0 0 8px gold);">🏠</div>',
-                className: 'hq-icon', iconSize: [30, 30], iconAnchor: [15, 15]
-            })
-        }).addTo(map);
+        const hqIcon = L.divIcon({
+            html: '<div style="font-size: 34px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">🏠</div>',
+            className: 'hq-icon', iconSize: [40, 40], iconAnchor: [20, 20]
+        });
+        L.marker(hqPos, { icon: hqIcon }).addTo(map).bindPopup("<b>BlingBling HQ</b>");
 
-        let isDark = true;
+        let isDark = false;
         function toggleMap() {
-            if (!isDark) { map.removeLayer(lightLayer); darkLayer.addTo(map); isDark = true; }
-            else { map.removeLayer(darkLayer); lightLayer.addTo(map); isDark = false; }
+            const btn = document.getElementById('btnToggle');
+            if (!isDark) {
+                map.removeLayer(lightLayer);
+                darkLayer.addTo(map);
+                isDark = true;
+                btn.innerText = "Lichte Kaart";
+            } else {
+                map.removeLayer(darkLayer);
+                lightLayer.addTo(map);
+                isDark = false;
+                btn.innerText = "Donkere Kaart";
+            }
         }
 
         function resetView() { map.flyTo(hqPos, 14, { duration: 2 }); }
 
+        // Ably Setup
         const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
         const channel = ably.channels.get('tracking');
         let drivers = {};
 
-        // Haversine formule voor km berekening
-        function getDistance(lat1, lon1, lat2, lon2) {
+        // Wiskundige Berekening (Haversine)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2-lat1) * Math.PI/180;
             const dLon = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
         }
 
         channel.subscribe('pos', (msg) => {
             const { name, lat, lng, destination } = msg.data;
-            const dist = getDistance(lat, lng, hqPos[0], hqPos[1]);
-            const eta = Math.ceil(dist * 2.5);
-            const progress = Math.max(0, Math.min(100, (1 - (dist / 6)) * 100));
+            const dist = calculateDistance(lat, lng, hqPos[0], hqPos[1]);
+            const eta = Math.ceil(dist * 2.5); // Schatting: 2.5 min per km
+            const progress = Math.max(5, Math.min(100, (1 - (dist / 8)) * 100));
 
             if (!drivers[name]) {
+                // Nieuw Kaartje maken
                 const card = document.createElement('li');
                 card.id = `card-${name}`;
                 card.className = "driver-card";
                 card.onclick = () => {
                     map.flyTo([lat, lng], 17, { duration: 1.5 });
-                    if (window.innerWidth < 900) { window.scrollTo({top: 0, behavior: 'smooth'}); }
+                    if (window.innerWidth < 900) {
+                        document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+                    }
                 };
                 card.innerHTML = `
                     <div class="driver-top">
                         <span class="driver-name"><div class="ping-dot" id="ping-${name}"></div>🚗 ${name}</span>
-                        <span class="driver-eta" id="stats-${name}">${dist.toFixed(1)} km<br>${eta} min</span>
+                        <div class="driver-eta" id="stats-${name}">
+                            Afstand: <b>${dist.toFixed(1)} km</b><br>
+                            <span class="eta-val">ETA: ${eta} min</span>
+                        </div>
                     </div>
-                    <div id="dest-tag-${name}" class="driver-dest-tag">📍 Onderweg: ${destination || ''}</div>
+                    <div id="dest-tag-${name}" class="driver-dest-tag">📍 Naar: ${destination || '...'}</div>
                     <div class="progress-bg"><div class="progress-bar" id="bar-${name}" style="width: ${progress}%"></div></div>
                 `;
                 document.getElementById('driver-list').appendChild(card);
 
-                drivers[name] = L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        html: `<span style="font-size: 26px; display: block;">🚗</span><div style="background:var(--gold); color:#000; padding:2px 6px; border-radius:4px; font-weight:900; font-size:11px; border:1px solid black; white-space:nowrap; margin-top:-2px;">${name}</div>`,
-                        className: 'car-icon', iconSize: [70, 45], iconAnchor: [35, 35]
-                    })
-                }).addTo(map);
+                // Nieuwe Marker op kaart
+                const carIcon = L.divIcon({
+                    html: `<div style="text-align:center;">
+                            <span style="font-size: 30px; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🚗</span>
+                            <div style="background:white; color:black; padding:3px 8px; border-radius:6px; font-weight:900; font-size:12px; border:2px solid var(--gold); white-space:nowrap; margin-top:-5px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">${name}</div>
+                           </div>`,
+                    className: 'car-icon', iconSize: [80, 50], iconAnchor: [40, 40]
+                });
+                
+                drivers[name] = L.marker([lat, lng], { icon: carIcon }).addTo(map);
+                
+                document.getElementById('sys-status').style.color = "var(--green)";
+                document.getElementById('sys-status').innerText = "Live Updates";
             } else {
-                // Update bestaande marker en kaartje
+                // Bestaande driver updaten
                 drivers[name].setLatLng([lat, lng]);
-                document.getElementById(`stats-${name}`).innerHTML = `${dist.toFixed(1)} km<br>${eta} min`;
+                document.getElementById(`stats-${name}`).innerHTML = `Afstand: <b>${dist.toFixed(1)} km</b><br><span class="eta-val">ETA: ${eta} min</span>`;
                 document.getElementById(`bar-${name}`).style.width = `${progress}%`;
                 
-                // Bestemming updaten
                 const destTag = document.getElementById(`dest-tag-${name}`);
                 if (destination && destination.trim() !== "") {
-                    destTag.innerText = `📍 Onderweg: ${destination}`;
+                    destTag.innerText = `📍 Naar: ${destination}`;
                     destTag.style.display = "block";
-                } else {
-                    destTag.style.display = "none";
                 }
                 
+                // Pulse effect
                 const ping = document.getElementById(`ping-${name}`);
                 if (ping) {
                     ping.classList.remove('active');
-                    void ping.offsetWidth;
+                    void ping.offsetWidth; // Trigger reflow
                     ping.classList.add('active');
                 }
             }
         });
 
-        window.onload = () => {
-            setTimeout(() => { map.invalidateSize(); }, 500);
-        };
+        // iPhone Resize Fix
+        window.addEventListener('resize', () => { map.invalidateSize(); });
+        window.onload = () => { setTimeout(() => { map.invalidateSize(); }, 600); };
     </script>
 </body>
 </html>

@@ -9,108 +9,246 @@
     <style>
         :root { --accent: #ffcc00; --bg: #ffffff; --text: #1a1a1a; --blue: #4285F4; }
         body.dark { --bg: #121212; --text: #ffffff; }
-        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; overflow: hidden; }
-        #map { height: 60%; width: 100%; transition: height 0.5s ease; }
-        .ui { height: 40%; background: var(--bg); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-top: 2px solid var(--accent); z-index: 1000; position: relative; border-radius: 20px 20px 0 0; box-shadow: 0 -10px 25px rgba(0,0,0,0.1); }
-        .stats-bar { display: flex; justify-content: space-around; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 12px; margin-bottom: 5px; }
-        body.dark .stats-bar { background: rgba(255,255,255,0.05); }
-        .stat-item { text-align: center; }
-        .stat-val { display: block; font-weight: bold; font-size: 1.1rem; color: var(--accent); }
-        .stat-label { font-size: 0.6rem; text-transform: uppercase; opacity: 0.7; }
-        input { background: rgba(0,0,0,0.05); border: 1px solid #ddd; color: var(--text); padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; font-size: 1rem; outline: none; }
-        body.dark input { background: rgba(255,255,255,0.1); border-color: #444; }
-        .btn { padding: 16px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; width: 100%; }
-        .nav-btn { background: var(--accent); color: black; box-shadow: 0 4px 15px rgba(255,204,0,0.4); }
+
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            background: var(--bg); color: var(--text); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            overflow: hidden; 
+        }
+        
+        #map { height: 60%; width: 100%; transition: height 0.5s ease; z-index: 1; }
+        #map.driving { height: 65%; }
+
+        .ui { 
+            height: 40%; background: var(--bg); padding: 20px; 
+            display: flex; flex-direction: column; gap: 12px; 
+            border-top: 3px solid var(--accent); z-index: 1000; 
+            position: relative; border-radius: 25px 25px 0 0; 
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+        }
+
+        .stats-bar { 
+            display: flex; justify-content: space-around; 
+            background: rgba(0,0,0,0.05); padding: 15px; 
+            border-radius: 16px; margin-bottom: 5px; 
+        }
+        body.dark .stats-bar { background: rgba(255,255,255,0.08); }
+        
+        .stat-item { text-align: center; flex: 1; }
+        .stat-val { display: block; font-weight: 800; font-size: 1.3rem; color: var(--accent); }
+        .stat-label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.6; font-weight: 700; }
+
+        .input-group { display: flex; flex-direction: column; gap: 10px; }
+        input { 
+            background: rgba(0,0,0,0.05); border: 2px solid transparent; 
+            color: var(--text); padding: 15px; border-radius: 12px; 
+            width: 100%; box-sizing: border-box; font-size: 1rem; 
+            outline: none; transition: 0.3s;
+        }
+        input:focus { border-color: var(--accent); background: var(--bg); }
+        body.dark input { background: rgba(255,255,255,0.1); }
+
+        .btn { 
+            padding: 18px; border-radius: 50px; border: none; 
+            font-weight: 900; font-size: 1.2rem; cursor: pointer; 
+            transition: 0.3s transform, 0.3s background; width: 100%;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn:active { transform: scale(0.96); }
+        .nav-btn { background: var(--accent); color: #000; box-shadow: 0 6px 20px rgba(255,204,0,0.4); }
         .stop-btn { background: #ff4444 !important; color: white !important; }
-        .finish-icon { background: #ff4444; border: 3px solid white; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); width: 30px !important; height: 30px !important; display: flex; align-items: center; justify-content: center; }
-        .finish-icon span { transform: rotate(45deg); font-size: 14px; }
-        .pulse-dest { border: 3px solid #ff4444; border-radius: 50%; animation: dest-pulse 2s infinite; position: absolute; }
-        @keyframes dest-pulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
-        .theme-toggle { position: absolute; top: 15px; right: 15px; z-index: 1000; background: var(--bg); border: 1px solid #ccc; padding: 8px; border-radius: 10px; cursor: pointer; }
+        
+        /* Custom Markers */
+        .finish-icon { 
+            background: #ff4444; border: 3px solid white; 
+            border-radius: 50% 50% 50% 0; transform: rotate(-45deg); 
+            width: 35px !important; height: 35px !important; 
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .finish-icon span { transform: rotate(45deg); font-size: 16px; }
+
+        .pulse-dest { 
+            border: 4px solid #ff4444; border-radius: 50%; 
+            animation: dest-pulse 2s infinite; position: absolute; 
+        }
+        @keyframes dest-pulse { 
+            0% { transform: scale(0.6); opacity: 1; } 
+            100% { transform: scale(2.8); opacity: 0; } 
+        }
+
+        .theme-toggle { 
+            position: absolute; top: 20px; right: 20px; z-index: 2000; 
+            background: var(--bg); border: 2px solid var(--accent); 
+            padding: 10px; border-radius: 12px; cursor: pointer; font-size: 1.2rem;
+        }
     </style>
 </head>
-<body class="light">
+<body class="dark">
+
     <div id="map"></div>
     <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
+    
     <div class="ui" id="ui-panel">
         <div class="stats-bar" id="stats" style="display: none;">
-            <div class="stat-item"><span class="stat-val" id="val-speed">0</span><span class="stat-label">km/u</span></div>
-            <div class="stat-item"><span class="stat-val" id="val-dist">0.0</span><span class="stat-label">afstand</span></div>
-            <div class="stat-item"><span class="stat-val" id="val-eta">0</span><span class="stat-label">minuten</span></div>
+            <div class="stat-item">
+                <span class="stat-val" id="val-speed">0</span>
+                <span class="stat-label">km/u</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val" id="val-dist">0.0</span>
+                <span class="stat-label">afstand</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val" id="val-eta">0</span>
+                <span class="stat-label">minuten</span>
+            </div>
         </div>
-        <div id="inputs">
-            <input type="text" id="driverName" placeholder="Naam bezorger...">
-            <input type="text" id="targetAddress" placeholder="Adres van bestelling..." style="margin-top: 8px;">
+
+        <div id="inputs" class="input-group">
+            <input type="text" id="driverName" placeholder="Naam bezorger (bijv. Marco)...">
+            <input type="text" id="targetAddress" placeholder="Adres van de klant...">
         </div>
+        
         <button id="mainBtn" class="btn nav-btn" onclick="startJourney()">START RIT</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Setup Ably & Kaart
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
+        
         const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
         const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
-        let map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.2241, 5.3714], 15);
-        lightTiles.addTo(map);
 
-        let marker = L.marker([0,0], { icon: L.divIcon({ html: '🚗', className: 'car-emoji', iconSize: [30, 30], iconAnchor: [15, 15] }) }).addTo(map);
-        let routeLine = L.polyline([], {color: '#4285F4', weight: 6, opacity: 0.7}).addTo(map);
-        let destMarker = L.layerGroup().addTo(map);
+        let map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.2241, 5.3714], 15);
+        darkTiles.addTo(map);
+
+        let marker = L.marker([0,0], { 
+            icon: L.divIcon({ html: '<span style="font-size:30px">🚗</span>', className: 'car-emoji', iconSize: [30, 30], iconAnchor: [15, 15] }) 
+        }).addTo(map);
+
+        let routeLine = L.polyline([], {color: '#4285F4', weight: 7, opacity: 0.8, lineJoin: 'round'}).addTo(map);
+        let destMarkers = L.layerGroup().addTo(map);
+        let watchId = null;
         let lastSend = 0;
 
+        // Onthou de naam
         document.getElementById('driverName').value = localStorage.getItem('driverName') || "";
 
-        function toggleTheme() { document.body.classList.toggle('dark'); document.body.classList.toggle('light'); if (document.body.classList.contains('dark')) { map.removeLayer(lightTiles); darkTiles.addTo(map); } else { map.removeLayer(darkTiles); lightTiles.addTo(map); } }
+        function toggleTheme() {
+            if (document.body.classList.contains('dark')) {
+                document.body.classList.replace('dark', 'light');
+                map.removeLayer(darkTiles); lightTiles.addTo(map);
+            } else {
+                document.body.classList.replace('light', 'dark');
+                map.removeLayer(lightTiles); darkTiles.addTo(map);
+            }
+        }
 
         async function startJourney() {
             const name = document.getElementById('driverName').value;
             const address = document.getElementById('targetAddress').value;
-            if(!name) return alert("Naam invullen!");
+            
+            if(!name || !address) return alert("Vul a.u.b. je naam én het adres in!");
+
             localStorage.setItem('driverName', name);
             document.getElementById('inputs').style.display = "none";
             document.getElementById('stats').style.display = "flex";
+            document.getElementById('map').classList.add('driving');
+            
             const btn = document.getElementById('mainBtn');
-            btn.innerText = "STOP RIT"; btn.className = "btn stop-btn"; btn.onclick = () => location.reload();
+            btn.innerText = "RIT BEËINDIGEN"; 
+            btn.className = "btn stop-btn";
+            btn.onclick = () => location.reload();
 
-            navigator.geolocation.watchPosition(async (pos) => {
+            // Start locatie volgen
+            watchId = navigator.geolocation.watchPosition(async (pos) => {
                 const { latitude, longitude, speed } = pos.coords;
+                const now = Date.now();
+
+                // 1. Update Marker & Kaart
                 marker.setLatLng([latitude, longitude]);
                 map.panTo([latitude, longitude]);
-                document.getElementById('val-speed').innerText = speed ? Math.round(speed * 3.6) : 0;
+                
+                // 2. Snelheid tonen
+                const kmh = speed ? Math.round(speed * 3.6) : 0;
+                document.getElementById('val-speed').innerText = kmh;
 
-                if (Date.now() - lastSend > 4000) {
-                    channel.publish('pos', { name, lat: latitude, lng: longitude, destination: address });
-                    lastSend = Date.now();
+                // 3. Stuur naar Ably (max elke 4 sec)
+                if (now - lastSend > 4000) {
+                    channel.publish('pos', { 
+                        name, 
+                        lat: latitude, 
+                        lng: longitude, 
+                        destination: address 
+                    });
+                    lastSend = now;
                 }
 
-                if(address && routeLine.getLatLngs().length === 0) drawRoute(latitude, longitude, address);
-                if(routeLine.getLatLngs().length > 0) updateETA(latitude, longitude);
-            }, null, { enableHighAccuracy: true });
+                // 4. Route tekenen als die er nog niet is
+                if(routeLine.getLatLngs().length === 0) {
+                    await drawRoute(latitude, longitude, address);
+                }
+
+                // 5. Update Afstand & ETA
+                if(routeLine.getLatLngs().length > 0) {
+                    calculateMetrics(latitude, longitude);
+                }
+
+            }, (err) => console.error(err), { enableHighAccuracy: true });
         }
 
-        async function drawRoute(sLat, sLng, dest) {
+        async function drawRoute(startLat, startLng, destAddr) {
             try {
-                const geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dest)}`);
-                const gd = await geo.json();
-                if(gd.length === 0) return;
-                const eLat = gd[0].lat, eLng = gd[0].lon;
-                L.marker([eLat, eLng], { icon: L.divIcon({ className: 'finish-icon', html: '<span>🏁</span>', iconSize: [30, 30], iconAnchor: [15, 30] }) }).addTo(destMarker);
-                L.circleMarker([eLat, eLng], { radius: 10, color: '#ff4444', className: 'pulse-dest' }).addTo(destMarker);
-                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${sLng},${sLat};${eLng},${eLat}?overview=full&geometries=geojson`);
-                const data = await res.json();
-                routeLine.setLatLngs(data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]));
-                map.fitBounds(routeLine.getBounds(), {padding: [50, 50]});
-            } catch (e) {}
+                // Zoek adres coördinaten
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destAddr)}`);
+                const geoData = await geoRes.json();
+                if(geoData.length === 0) return;
+
+                const endLat = geoData[0].lat;
+                const endLng = geoData[0].lon;
+
+                // Zet marker op bestemming
+                L.marker([endLat, endLng], { 
+                    icon: L.divIcon({ className: 'finish-icon', html: '<span>🏁</span>', iconSize: [35, 35], iconAnchor: [17, 35] }) 
+                }).addTo(destMarkers);
+                
+                L.circleMarker([endLat, endLng], { radius: 12, color: '#ff4444', className: 'pulse-dest' }).addTo(destMarkers);
+
+                // Haal route op bij OSRM
+                const routeRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`);
+                const routeData = await routeRes.json();
+                
+                const coords = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                routeLine.setLatLngs(coords);
+                map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+            } catch (e) {
+                console.error("Route fout:", e);
+            }
         }
 
-        function updateETA(lat, lng) {
-            const dest = routeLine.getLatLngs()[routeLine.getLatLngs().length - 1];
+        function calculateMetrics(currentLat, currentLng) {
+            const path = routeLine.getLatLngs();
+            const destination = path[path.length - 1];
+            
+            // Simpele hemelsbrede berekening voor snelheid (Haversine)
             const R = 6371;
-            const d = R * 2 * Math.atan2(Math.sqrt(Math.sin(((dest.lat-lat)*Math.PI/180)/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(dest.lat*Math.PI/180)*Math.sin(((dest.lng-lng)*Math.PI/180)/2)**2), Math.sqrt(1-(Math.sin(((dest.lat-lat)*Math.PI/180)/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(dest.lat*Math.PI/180)*Math.sin(((dest.lng-lng)*Math.PI/180)/2)**2)));
+            const dLat = (destination.lat - currentLat) * Math.PI / 180;
+            const dLon = (destination.lng - currentLng) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(currentLat * Math.PI / 180) * Math.cos(destination.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
             document.getElementById('val-dist').innerText = d.toFixed(1) + " km";
-            document.getElementById('val-eta').innerText = Math.ceil(d * 2.2) + " min";
+            // Schatten: 2 minuten per km + 1 minuut buffer
+            document.getElementById('val-eta').innerText = Math.ceil(d * 2.2 + 1);
         }
+
+        window.onload = () => { setTimeout(() => map.invalidateSize(), 500); };
     </script>
 </body>
 </html>

@@ -7,34 +7,49 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #121212; color: white; font-family: sans-serif; overflow: hidden; }
-        #map { height: 60%; width: 100%; }
-        .ui { height: 40%; background: #1a1a1a; padding: 15px; display: flex; flex-direction: column; gap: 10px; border-top: 2px solid #ffcc00; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); z-index: 1000; position: relative; }
-        .status-bar { display: flex; justify-content: space-between; align-items: center; }
-        .live-tag { color: #00ff00; font-weight: bold; font-size: 0.8rem; animation: blink 2s infinite; }
-        @keyframes blink { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        input { background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 1rem; }
-        .btn { padding: 15px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; }
-        .nav-btn { background: #ffcc00; color: black; }
-        .stop-btn { background: #ff4444; color: white; }
-        #instruction { font-size: 0.9rem; color: #aaa; text-align: center; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #f4f4f4; color: #333; font-family: -apple-system, sans-serif; overflow: hidden; }
+        #map { height: 65%; width: 100%; background: #eee; }
+        
+        /* De UI beneden */
+        .ui { height: 35%; background: white; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-top: 2px solid #ffcc00; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); z-index: 1000; position: relative; }
+        
+        .status-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .live-tag { color: #28a745; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; }
+        .live-dot { width: 8px; height: 8px; background: #28a745; border-radius: 50%; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        input { background: #f9f9f9; border: 1px solid #ddd; color: #333; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 1rem; outline: none; }
+        input:focus { border-color: #ffcc00; }
+        
+        .btn { padding: 14px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s; width: 100%; }
+        .nav-btn { background: #ffcc00; color: black; box-shadow: 0 4px 10px rgba(255,204,0,0.3); }
+        .stop-btn { background: #ff4444 !important; color: white !important; }
+        
+        /* Thema Switcher op de kaart */
+        .theme-toggle {
+            position: absolute; top: 10px; right: 10px; z-index: 1000;
+            background: white; border: 2px solid rgba(0,0,0,0.2); padding: 8px;
+            border-radius: 8px; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center;
+        }
+
+        #timer { font-family: monospace; font-weight: bold; font-size: 1rem; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
+    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
     
     <div class="ui">
         <div class="status-bar">
-            <div id="status" class="live-tag" style="visibility: hidden;">● LIVE VERBINDING</div>
-            <div id="timer" style="font-weight: bold;">00:00</div>
+            <div id="status" class="live-tag" style="visibility: hidden;"><div class="live-dot"></div> LIVE VERBINDING</div>
+            <div id="timer">00:00</div>
         </div>
 
         <input type="text" id="driverName" placeholder="Naam bezorger...">
-        <input type="text" id="targetAddress" placeholder="Adres van de klant...">
+        <input type="text" id="targetAddress" placeholder="Adres klant (bijv. Spuistraat 1)...">
         
-        <button id="mainBtn" class="btn nav-btn" onclick="startJourney()">START RIT & NAVIGEER</button>
-        <div id="instruction">Hou dit scherm open tijdens het rijden</div>
+        <button id="mainBtn" class="btn nav-btn" onclick="startJourney()">START RIT</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -42,15 +57,27 @@
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
         
-        let map = L.map('map', { zoomControl: false }).setView([52.2241, 5.3714], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        // Thema's definiëren
+        const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+
+        let map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.2241, 5.3714], 14);
+        lightTiles.addTo(map); // Start met licht
+
+        let isDark = false;
+        function toggleTheme() {
+            if (isDark) { map.removeLayer(darkTiles); lightTiles.addTo(map); isDark = false; }
+            else { map.removeLayer(lightTiles); darkTiles.addTo(map); isDark = true; }
+        }
+
+        let marker = L.marker([0,0], {
+            icon: L.divIcon({ html: '🚗', className: 'car-emoji', iconSize: [30, 30], iconAnchor: [15, 15] })
+        }).addTo(map);
         
-        let carIcon = L.divIcon({ html: '🚗', className: 'car-icon', iconSize: [25, 25] });
-        let marker = L.marker([0,0], {icon: carIcon}).addTo(map);
-        let routeLine = L.polyline([], {color: '#4285F4', weight: 5, opacity: 0.8}).addTo(map);
-        
+        let routeLine = L.polyline([], {color: '#007bff', weight: 6, opacity: 0.7}).addTo(map);
         let watchId = null;
-        let isActive = false;
+        let lastSend = 0;
+        let startTime = null;
 
         document.getElementById('driverName').value = localStorage.getItem('driverName') || "";
 
@@ -61,49 +88,52 @@
             if(!name) return alert("Vul je naam in!");
             localStorage.setItem('driverName', name);
 
-            isActive = true;
             document.getElementById('mainBtn').innerText = "STOP RIT";
-            document.getElementById('mainBtn').className = "btn stop-btn";
+            document.getElementById('mainBtn').classList.add('stop-btn');
             document.getElementById('mainBtn').onclick = () => location.reload();
             document.getElementById('status').style.visibility = "visible";
+            startTime = Date.now();
 
-            // Start GPS en Tracking
             watchId = navigator.geolocation.watchPosition(async (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
+                const now = Date.now();
                 
-                // 1. Dashboard updaten via Ably
-                channel.publish('pos', { name: name, lat: lat, lng: lng });
+                // Dashboard update (elke 4 sec)
+                if (now - lastSend > 4000) {
+                    channel.publish('pos', { name: name, lat: lat, lng: lng });
+                    lastSend = now;
+                }
                 
-                // 2. Lokale kaart updaten
                 marker.setLatLng([lat, lng]);
-                map.setView([lat, lng], 16);
+                map.flyTo([lat, lng], 17, { animate: true, duration: 1.5 });
 
-                // 3. Route tekenen als er een adres is
                 if(address && routeLine.getLatLngs().length === 0) {
                     drawRoute(lat, lng, address);
                 }
             }, null, { enableHighAccuracy: true });
+
+            // Timer
+            setInterval(() => {
+                const diff = Math.floor((Date.now() - startTime) / 1000);
+                const m = Math.floor(diff/60).toString().padStart(2,'0');
+                const s = (diff%60).toString().padStart(2,'0');
+                document.getElementById('timer').innerText = m + ":" + s;
+            }, 1000);
         }
 
-        async function drawRoute(startLat, startLng, destination) {
+        async function drawRoute(sLat, sLng, dest) {
             try {
-                // Geocoding: Adres naar coördinaten
-                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`);
-                const geoData = await geoRes.json();
-                if(geoData.length === 0) return;
+                const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dest)}`);
+                const gd = await g.json();
+                if(gd.length === 0) return;
                 
-                const endLat = geoData[0].lat;
-                const endLng = geoData[0].lon;
-
-                // Route berekenen
-                const routeRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`);
-                const routeData = await routeRes.json();
-                
-                const coordinates = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                routeLine.setLatLngs(coordinates);
-                L.marker([endLat, endLng]).addTo(map).bindPopup("Klant").openPopup();
-            } catch (e) { console.error("Route fout:", e); }
+                const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${sLng},${sLat};${gd[0].lon},${gd[0].lat}?overview=full&geometries=geojson`);
+                const rd = await r.json();
+                const coords = rd.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                routeLine.setLatLngs(coords);
+                L.marker([gd[0].lat, gd[0].lon]).addTo(map);
+            } catch (e) {}
         }
     </script>
 </body>

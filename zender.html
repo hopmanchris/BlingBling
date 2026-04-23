@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BlingBling Navigatie | Driver Pro v3.0</title>
+    <title>BlingBling Navigatie | Driver Pro Ultra Edition</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     
     <style>
-        /* Design Systeem & Variabelen */
+        /* DESIGN SYSTEEM 
+        */
         :root { 
             --gold: #ffcc00; 
             --gold-dark: #e6b800;
@@ -17,57 +18,57 @@
             --light: #ffffff; 
             --red: #ff4444;
             --blue: #4285F4;
+            --history-path: #2d3748; /* Kleur voor het gereden pad */
             --gray-bg: #f8f9fa;
             --gray-border: #eeeeee;
             --text-main: #1a1a1a;
-            --shadow-lg: 0 15px 40px rgba(0,0,0,0.3);
-            --radius-xl: 30px;
-            --radius-md: 15px;
+            --radius-xl: 35px;
+            --radius-md: 18px;
+            --shadow-premium: 0 20px 50px rgba(0,0,0,0.35);
         }
         
-        /* Reset & Global Styles */
+        /* Basis Reset */
         * { 
             box-sizing: border-box; 
             -webkit-tap-highlight-color: transparent; 
-            margin: 0; 
-            padding: 0; 
+            margin: 0; padding: 0; 
         }
         
         body, html { 
-            height: 100%; 
-            width: 100%; 
+            height: 100%; width: 100%; 
             background: var(--dark); 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            overflow: hidden; 
-            position: fixed;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            overflow: hidden; position: fixed;
         }
 
-        /* Kaart Sectie - Neemt bovenste deel in beslag */
+        /* MAP SECTIE 
+        */
         #map { 
             height: 55%; 
             width: 100%; 
             z-index: 1; 
-            filter: grayscale(0.1) contrast(1.1);
-            transition: height 0.5s ease-in-out;
+            filter: contrast(1.05) brightness(0.95);
         }
         
-        /* UI Paneel (Onderkant) */
+        /* UI PANEEL 
+        */
         .ui-panel { 
             height: 45%; 
             background: var(--light); 
-            padding: 25px; 
+            padding: 30px; 
             display: flex; 
             flex-direction: column; 
-            gap: 15px; 
-            border-top: 5px solid var(--gold); 
+            gap: 18px; 
+            border-top: 6px solid var(--gold); 
             position: relative; 
             border-radius: var(--radius-xl) var(--radius-xl) 0 0; 
-            box-shadow: var(--shadow-lg); 
+            box-shadow: var(--shadow-premium); 
             z-index: 1000;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        /* Adres Suggesties Styling */
+        /* SEARCH & SUGGESTIONS 
+        */
         .search-container { 
             position: relative; 
             width: 100%; 
@@ -75,164 +76,154 @@
 
         #suggestions {
             position: absolute; 
-            bottom: 105%; 
-            left: 0; 
-            right: 0;
+            bottom: 110%; 
+            left: 0; right: 0;
             background: white; 
             border-radius: var(--radius-md); 
             border: 1px solid var(--gray-border);
-            margin-bottom: 10px; 
-            max-height: 220px; 
+            max-height: 250px; 
             overflow-y: auto;
             display: none; 
             z-index: 2000; 
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
-            animation: slideUp 0.3s ease;
+            box-shadow: 0 -15px 35px rgba(0,0,0,0.2);
+            animation: popIn 0.3s ease-out;
         }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
         .suggestion-item {
-            padding: 16px; 
+            padding: 18px; 
             border-bottom: 1px solid var(--gray-bg);
-            font-size: 0.95rem; 
+            font-size: 1rem; 
             cursor: pointer; 
             color: var(--text-main);
-            transition: background 0.2s;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            transition: background 0.2s;
         }
         
-        .suggestion-item:before { content: '📍'; font-size: 1.1rem; }
+        .suggestion-item:before { content: '📍'; }
         .suggestion-item:last-child { border-bottom: none; }
         .suggestion-item:active { background: #fff9e6; }
 
-        /* Dashboard Informatie Grid */
+        /* DASHBOARD STATS 
+        */
         .stats-grid { 
             display: none; 
             grid-template-columns: repeat(3, 1fr); 
-            gap: 12px; 
+            gap: 15px; 
             background: var(--gray-bg); 
-            padding: 22px; 
-            border-radius: 20px; 
+            padding: 25px; 
+            border-radius: 25px; 
             border: 1px solid var(--gray-border);
-            animation: fadeIn 0.6s ease;
+            animation: fadeIn 0.8s ease;
         }
 
         .stat-item { text-align: center; }
         .stat-val { 
             display: block; 
             font-weight: 900; 
-            font-size: 1.5rem; 
+            font-size: 1.7rem; 
             color: var(--dark); 
-            line-height: 1;
         }
         .stat-label { 
-            font-size: 0.65rem; 
+            font-size: 0.7rem; 
             text-transform: uppercase; 
             font-weight: 800; 
-            color: #999; 
-            letter-spacing: 1.2px;
-            margin-top: 5px;
-            display: block;
+            color: #aaa; 
+            letter-spacing: 1.5px;
+            margin-top: 4px;
         }
 
-        /* Input Groep */
-        .input-group { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-        }
+        /* FORMS & BUTTONS 
+        */
+        .input-group { display: flex; flex-direction: column; gap: 15px; }
         
         input { 
             background: var(--gray-bg); 
             border: 2px solid var(--gray-border); 
-            padding: 18px; 
+            padding: 20px; 
             border-radius: var(--radius-md); 
             width: 100%; 
-            box-sizing: border-box; 
-            font-size: 1rem; 
+            font-size: 1.1rem; 
             font-weight: 600;
             outline: none; 
-            transition: all 0.3s;
-            color: var(--text-main);
+            transition: 0.3s;
         }
         
         input:focus { 
             border-color: var(--gold); 
             background: #fff; 
-            box-shadow: 0 0 0 4px rgba(255,204,0,0.1); 
+            box-shadow: 0 0 0 5px rgba(255,204,0,0.15); 
         }
 
-        /* Knoppen Design */
         .btn { 
-            padding: 20px; 
-            border-radius: 50px; 
+            padding: 22px; 
+            border-radius: 60px; 
             border: none; 
             font-weight: 900; 
-            font-size: 1.2rem; 
+            font-size: 1.3rem; 
             cursor: pointer; 
             width: 100%; 
             text-transform: uppercase; 
-            letter-spacing: 1.5px;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            letter-spacing: 2px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         .btn-start { 
             background: var(--gold); 
             color: var(--dark);
-            box-shadow: 0 10px 25px rgba(255,204,0,0.35); 
+            box-shadow: 0 12px 30px rgba(255,204,0,0.4); 
         }
         
-        .btn-start:active { transform: scale(0.96); }
+        .btn-start:active { transform: scale(0.95); }
 
         .btn-stop { 
             background: var(--red); 
             color: white; 
             margin-top: auto;
-            box-shadow: 0 8px 20px rgba(255,68,68,0.25);
+            box-shadow: 0 10px 25px rgba(255,68,68,0.3);
         }
 
-        /* Markers & Icons */
+        /* MARKERS 
+        */
+        .user-dot {
+            width: 26px; height: 26px;
+            background: var(--blue);
+            border: 4px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 25px rgba(66, 133, 244, 0.7);
+        }
+
         .finish-marker { 
             background: var(--red); 
             border: 3px solid white; 
             border-radius: 50% 50% 50% 0; 
             transform: rotate(-45deg); 
-            width: 42px !important; height: 42px !important; 
+            width: 45px !important; height: 45px !important; 
             display: flex; align-items: center; justify-content: center; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
         }
-        .finish-marker span { transform: rotate(45deg); font-size: 22px; }
+        .finish-marker span { transform: rotate(45deg); font-size: 24px; }
 
-        .user-dot {
-            width: 24px; height: 24px;
-            background: var(--blue);
-            border: 4px solid white;
-            border-radius: 50%;
-            box-shadow: 0 0 20px rgba(66, 133, 244, 0.6);
+        /* Error Toast */
+        #error-msg {
+            position: fixed; top: 25px; left: 25px; right: 25px;
+            background: var(--red); color: white; padding: 20px;
+            border-radius: 15px; font-weight: 800; text-align: center;
+            z-index: 4000; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
-        /* Animations */
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Error Message Toast */
-        #error-toast {
-            position: fixed; top: 20px; left: 20px; right: 20px;
-            background: var(--red); color: white; padding: 15px;
-            border-radius: 12px; font-weight: 700; text-align: center;
-            z-index: 3000; display: none; animation: slideDown 0.4s ease;
-        }
-        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-    <div id="error-toast"></div>
+    <div id="error-msg"></div>
     <div id="map"></div>
 
     <div class="ui-panel" id="ui">
@@ -247,238 +238,215 @@
             </div>
             <div class="stat-item">
                 <span class="stat-val" id="val-eta">0</span>
-                <span class="stat-label">Minuten</span>
+                <span class="stat-label">Min</span>
             </div>
         </div>
 
         <div class="input-group" id="setup">
-            <input type="text" id="driverName" placeholder="Je Naam" maxlength="20">
+            <input type="text" id="driverName" placeholder="Naam Bezorger" maxlength="25">
             <div class="search-container">
                 <div id="suggestions"></div>
-                <input type="text" id="targetAddress" placeholder="Waar ga je heen?" autocomplete="off">
+                <input type="text" id="targetAddress" placeholder="Voer adres in..." autocomplete="off">
             </div>
         </div>
 
-        <button id="actionBtn" class="btn btn-start" onclick="initRit()">Start Navigatie</button>
+        <button id="actionBtn" class="btn btn-start" onclick="startSystem()">Systeem Starten</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         /**
-         * CONFIGURATIE & INITIALISATIE
+         * 1. INITIALISATIE & VARIABELEN
          */
         const ABLY_KEY = 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ';
         const ably = new Ably.Realtime(ABLY_KEY);
         const channel = ably.channels.get('tracking');
         
+        // Kaart setup
         let map = L.map('map', { 
             zoomControl: false, 
-            attributionControl: false,
-            dragging: true 
+            attributionControl: false 
         }).setView([52.2241, 5.3714], 15);
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
-        let userMarker = L.marker([0,0], { 
-            icon: L.divIcon({ className: 'user-dot', iconSize: [24, 24], iconAnchor: [12, 12] }) 
-        }).addTo(map);
-
+        // Lagen voor lijnen
         let routeLine = L.polyline([], { 
-            color: '#4285F4', 
-            weight: 8, 
-            opacity: 0.8, 
-            lineCap: 'round',
-            lineJoin: 'round'
+            color: '#4285F4', weight: 8, opacity: 0.4, lineCap: 'round' 
+        }).addTo(map);
+        
+        let historyLine = L.polyline([], { 
+            color: '#1a202c', weight: 9, opacity: 0.9, lineCap: 'round', dashArray: '1, 15' 
         }).addTo(map);
 
-        let destinationMarker = null;
-        let detectedCity = "";
-        let debounceTimer = null;
+        let userMarker = L.marker([0,0], { 
+            icon: L.divIcon({ className: 'user-dot', iconSize: [26, 26], iconAnchor: [13, 13] }) 
+        }).addTo(map);
+
+        let destMarker = null;
+        let breadcrumbs = []; // Geschiedenis opslag
+        let cityFound = "";
+        let debounce = null;
         let watchId = null;
 
         /**
-         * ADRES SUGGESTIES LOGICA
+         * 2. ADRES SUGGESTIE ENGINE (NOMINATIM)
          */
-        const addressInput = document.getElementById('targetAddress');
-        const suggestionBox = document.getElementById('suggestions');
+        const inputAddr = document.getElementById('targetAddress');
+        const listSugg = document.getElementById('suggestions');
 
-        addressInput.addEventListener('input', () => {
-            clearTimeout(debounceTimer);
-            const query = addressInput.value.trim();
-            
-            if (query.length < 3) { 
-                suggestionBox.style.display = 'none'; 
-                return; 
-            }
+        inputAddr.addEventListener('input', () => {
+            clearTimeout(debounce);
+            const val = inputAddr.value.trim();
+            if (val.length < 3) { listSugg.style.display = 'none'; return; }
 
-            debounceTimer = setTimeout(() => {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=nl&addressdetails=1&limit=6`)
-                    .then(res => res.json())
-                    .then(data => {
-                        suggestionBox.innerHTML = '';
-                        if (data && data.length > 0) {
-                            suggestionBox.style.display = 'block';
-                            data.forEach(place => {
-                                const div = document.createElement('div');
-                                div.className = 'suggestion-item';
-                                // Formatteer het adres voor leesbaarheid
-                                const street = place.address.road || "";
-                                const houseNum = place.address.house_number || "";
-                                const city = place.address.city || place.address.town || place.address.village || "";
-                                const cleanLabel = `${street} ${houseNum}, ${city}`.replace(/^ ,/, "").trim();
-                                
-                                div.innerText = cleanLabel !== ", " ? cleanLabel : place.display_name;
-                                
-                                div.onclick = () => {
-                                    addressInput.value = div.innerText;
-                                    suggestionBox.style.display = 'none';
-                                    // Sla de stad alvast op
-                                    detectedCity = city;
-                                };
-                                suggestionBox.appendChild(div);
-                            });
-                        } else {
-                            suggestionBox.style.display = 'none';
-                        }
-                    })
-                    .catch(err => console.error("Suggestie fout:", err));
-            }, 400);
+            debounce = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(val)}&countrycodes=nl&limit=6`)
+                .then(r => r.json())
+                .then(data => {
+                    listSugg.innerHTML = '';
+                    if (data && data.length > 0) {
+                        listSugg.style.display = 'block';
+                        data.forEach(p => {
+                            const item = document.createElement('div');
+                            item.className = 'suggestion-item';
+                            
+                            const s = p.address.road || "";
+                            const h = p.address.house_number || "";
+                            const c = p.address.city || p.address.town || p.address.village || "";
+                            const label = `${s} ${h}, ${c}`.replace(/^ ,/, "").trim();
+                            
+                            item.innerText = label.length > 5 ? label : p.display_name;
+                            item.onclick = () => {
+                                inputAddr.value = item.innerText;
+                                cityFound = c;
+                                listSugg.style.display = 'none';
+                            };
+                            listSugg.appendChild(item);
+                        });
+                    }
+                }).catch(e => console.error("Search error", e));
+            }, 450);
         });
 
-        // Verberg suggesties als je ergens anders klikt
-        document.addEventListener('click', (e) => {
-            if (e.target !== addressInput) suggestionBox.style.display = 'none';
-        });
+        // Klik buiten suggesties verbergen
+        document.addEventListener('click', (e) => { if (e.target !== inputAddr) listSugg.style.display = 'none'; });
 
         /**
-         * RIT FUNCTIES
+         * 3. RIT LOGICA & TRACKING
          */
-        async function initRit() {
+        async function startSystem() {
             const name = document.getElementById('driverName').value.trim();
-            const address = addressInput.value.trim();
+            const addr = inputAddr.value.trim();
 
-            if(!name || !address) {
-                showError("Vul aub je naam en het adres in.");
+            if (!name || !addr) {
+                const toast = document.getElementById('error-msg');
+                toast.innerText = "Voer a.u.b. alle gegevens in!";
+                toast.style.display = 'block';
+                setTimeout(() => toast.style.display = 'none', 3000);
                 return;
             }
 
-            // UI Wisselen
+            // Interface Wisselen
             document.getElementById('setup').style.display = "none";
             document.getElementById('stats').style.display = "grid";
             
-            const btn = document.getElementById('actionBtn');
-            btn.innerText = "Rit Beëindigen";
-            btn.className = "btn btn-stop";
-            btn.onclick = () => location.reload();
+            const mainBtn = document.getElementById('actionBtn');
+            mainBtn.innerText = "Rit Beëindigen";
+            mainBtn.className = "btn btn-stop";
+            mainBtn.onclick = () => location.reload();
 
-            // Start GPS en Verbinding
-            startTracking(name, address);
+            // Start GPS Watch
+            initTracking(name, addr);
         }
 
-        function startTracking(name, address) {
-            if (!navigator.geolocation) {
-                showError("GPS wordt niet ondersteund door je browser.");
-                return;
-            }
+        function initTracking(name, addr) {
+            if (!navigator.geolocation) return alert("Geen GPS beschikbaar");
 
-            watchId = navigator.geolocation.watchPosition(async (pos) => {
-                const { latitude, longitude, speed } = pos.coords;
-                const coords = [latitude, longitude];
+            watchId = navigator.geolocation.watchPosition(async (p) => {
+                const lat = p.coords.latitude;
+                const lng = p.coords.longitude;
+                const speed = p.coords.speed;
+                const pos = [lat, lng];
 
-                userMarker.setLatLng(coords);
-                map.panTo(coords, { animate: true, duration: 1 });
+                // A. Update Marker & Camera
+                userMarker.setLatLng(pos);
+                map.panTo(pos, { animate: true, duration: 1.5 });
 
-                // Update Snelheid
-                const kmh = speed ? Math.round(speed * 3.6) : 0;
-                document.getElementById('val-speed').innerText = kmh;
+                // B. Geschiedenis (Breadcrumbs)
+                breadcrumbs.push(pos);
+                historyLine.setLatLngs(breadcrumbs);
 
-                // Route ophalen bij de eerste fix
+                // C. Snelheid UI
+                document.getElementById('val-speed').innerText = speed ? Math.round(speed * 3.6) : 0;
+
+                // D. Eerste keer Route laden
                 if (routeLine.getLatLngs().length === 0) {
-                    await fetchRoute(latitude, longitude, address);
+                    await getRoute(lat, lng, addr);
                 }
 
-                // Zend naar Ably
+                // E. Sync met Dashboard
                 channel.publish('pos', { 
-                    name: name, 
-                    lat: latitude, 
-                    lng: longitude, 
-                    destination: address,
-                    city: detectedCity 
+                    name: name, lat, lng, 
+                    destination: addr, 
+                    city: cityFound 
                 });
 
-                updateStats(latitude, longitude);
+                // F. Update Afstand & ETA
+                refreshLiveStats(lat, lng);
 
-            }, (err) => {
-                showError("GPS Signaal verloren...");
-                console.error(err);
-            }, { 
-                enableHighAccuracy: true, 
-                maximumAge: 0 
-            });
+            }, (err) => console.error("GPS Error", err), 
+            { enableHighAccuracy: true, maximumAge: 0 });
         }
 
-        async function fetchRoute(slat, slng, destAddr) {
+        /**
+         * 4. ROUTE & STATS BEREKENING
+         */
+        async function getRoute(slat, slng, address) {
             try {
-                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(destAddr)}`);
-                const geoData = await geoRes.json();
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(address)}`);
+                const data = await res.json();
 
-                if (geoData && geoData.length > 0) {
-                    const target = geoData[0];
-                    const elat = target.lat;
-                    const elng = target.lon;
+                if (data && data.length > 0) {
+                    const target = data[0];
+                    if (!cityFound) cityFound = target.address.city || target.address.town || "";
 
-                    // Update stad als dat nog niet gebeurd was via suggestie
-                    if (!detectedCity) {
-                        detectedCity = target.address.city || target.address.town || target.address.village || "";
-                    }
-
-                    // Eind-marker plaatsen
-                    if (destinationMarker) map.removeLayer(destinationMarker);
-                    destinationMarker = L.marker([elat, elng], { 
+                    // Zet Finish Vlag
+                    if (destMarker) map.removeLayer(destMarker);
+                    destMarker = L.marker([target.lat, target.lon], { 
                         icon: L.divIcon({ className: 'finish-marker', html: '<span>🏁</span>' }) 
                     }).addTo(map);
 
-                    // Route berekenen (OSRM)
-                    const routeRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${slng},${slat};${elng},${elat}?overview=full&geometries=geojson`);
-                    const routeData = await routeRes.json();
+                    // Haal OSRM Route
+                    const osrm = await fetch(`https://router.project-osrm.org/route/v1/driving/${slng},${slat};${target.lon},${target.lat}?overview=full&geometries=geojson`);
+                    const routeData = await osrm.json();
 
                     if (routeData.routes && routeData.routes[0]) {
-                        const path = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                        routeLine.setLatLngs(path);
-                        map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+                        const pts = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                        routeLine.setLatLngs(pts);
+                        map.fitBounds(routeLine.getBounds(), { padding: [60, 60] });
                     }
                 }
-            } catch (e) {
-                console.error("Route fout:", e);
-            }
+            } catch (err) { console.error("Route Fetch Failed", err); }
         }
 
-        function updateStats(lat, lng) {
+        function refreshLiveStats(lat, lng) {
             const path = routeLine.getLatLngs();
             if (path.length > 0) {
-                const destination = path[path.length - 1];
-                const meters = map.distance([lat, lng], destination);
+                const finish = path[path.length - 1];
+                const meters = map.distance([lat, lng], finish);
                 const km = meters / 1000;
 
                 document.getElementById('val-dist').innerText = km.toFixed(1) + " km";
                 
-                // ETA: Gebaseerd op gemiddelde stadssnelheid (2.5 min/km)
-                const mins = Math.ceil(km * 2.5) + 1;
-                document.getElementById('val-eta').innerText = mins;
+                // ETA berekening (2.5 min/km gemiddeld in stad)
+                const eta = Math.ceil(km * 2.5) + 1;
+                document.getElementById('val-eta').innerText = eta;
             }
         }
 
-        function showError(msg) {
-            const toast = document.getElementById('error-toast');
-            toast.innerText = msg;
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 4000);
-        }
-
-        // Kaart fix voor mobiele browsers
-        window.onload = () => {
-            setTimeout(() => { map.invalidateSize(); }, 600);
-        };
+        // Layout fix
+        window.onload = () => { setTimeout(() => map.invalidateSize(), 800); };
     </script>
 </body>
 </html>

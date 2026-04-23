@@ -3,152 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling | Live Tracking</title>
-    
+    <title>BlingBling Dashboard | HQ</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
-
     <style>
-        :root { --gold: #ffcc00; --bg: #000; --sidebar-bg: #111d2b; --text: #ffffff; }
-
-        html, body { 
+        :root { --gold: #ffcc00; --bg: #000; --sidebar-bg: #111d2b; --text: #ffffff; --green: #00ff00; }
+        
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        /* iPhone Fix: Forceer de pagina om exact het scherm te vullen */
+        body, html { 
             margin: 0; padding: 0; height: 100%; width: 100%; 
-            background: var(--bg); font-family: -apple-system, sans-serif;
-            overflow: hidden; position: fixed; 
-        }
-
-        /* HEADER */
-        header { 
-            background: #000; padding: 15px; text-align: center; 
-            border-bottom: 2px solid var(--gold); height: 110px; 
-            display: flex; justify-content: center; align-items: center; 
-            z-index: 2000; position: relative;
-        }
-        header img { height: 85px; filter: drop-shadow(0 0 8px rgba(255,204,0,0.5)); }
-
-        /* MAIN LAYOUT */
-        .main-wrapper {
-            display: flex;
-            height: calc(100vh - 110px);
-            width: 100%;
-            position: absolute;
-            top: 110px;
-        }
-
-        /* SIDEBAR (BEZORGERS) */
-        #sidebar {
-            width: 300px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid rgba(255,204,0,0.2);
-            overflow-y: auto;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
+            background: var(--bg); color: var(--text); 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            overflow: hidden; position: fixed; /* Voorkomt 'bouncen' op iOS */
         }
         
-        @media (max-width: 768px) {
-            #sidebar { width: 100px; } /* Smaller op mobiel */
-            .bezorger-naam { display: none; } /* Alleen icoon op mobiel */
+        header { 
+            background: #000; padding: 15px; border-bottom: 2px solid var(--gold); height: 110px; 
+            display: flex; justify-content: center; align-items: center; z-index: 2000;
+            position: relative;
+        }
+        header img { height: 85px; filter: drop-shadow(0 0 10px rgba(255,204,0,0.3)); cursor: pointer; }
+        
+        /* Container die de rest van de ruimte pakt */
+        .main-container { 
+            display: flex; 
+            flex-direction: column; 
+            height: calc(100% - 110px); /* Precies de ruimte onder de header */
+            width: 100%;
         }
 
-        #sidebar h3 {
-            color: var(--gold);
-            text-align: center;
-            font-size: 1rem;
-            padding: 15px;
-            margin: 0;
-            border-bottom: 1px solid rgba(255,204,0,0.1);
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        /* Op grotere schermen (PC/iPad) zijbalk links */
+        @media (min-width: 900px) { 
+            .main-container { flex-direction: row; } 
         }
 
-        .bezorger-item {
-            padding: 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: white;
-            cursor: pointer;
-        }
-        .status-dot { width: 10px; height: 10px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 5px #00ff00; }
-
-        /* KAART */
+        /* Kaart vult de beschikbare ruimte */
         #map { 
-            flex-grow: 1;
-            background: #0b0d10;
+            flex-grow: 1; 
+            width: 100%; 
+            z-index: 1; 
+            background: #222; 
+            position: relative;
+        }
+        
+        /* Zijbalk styling */
+        #sidebar { 
+            background: var(--sidebar-bg); 
+            width: 100%; /* Mobiel: volle breedte onderaan */
+            height: 300px; /* Mobiel: vaste hoogte */
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 10;
+            overflow-y: auto;
         }
 
-        /* MARKER STYLING */
-        .custom-marker {
-            background: var(--gold);
-            border: 2px solid #fff;
-            border-radius: 50%;
-            text-align: center;
-            font-weight: bold;
-            color: #000;
-            line-height: 30px;
-            box-shadow: 0 0 10px rgba(255,204,0,0.8);
+        /* PC-scherm aanpassingen voor zijbalk */
+        @media (min-width: 900px) { 
+            #sidebar { 
+                width: 380px; 
+                height: 100%; 
+                border-top: none; 
+                border-left: 1px solid rgba(255,255,255,0.1); 
+            } 
         }
+
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h2 { font-size: 13px; color: var(--gold); margin: 0; text-transform: uppercase; letter-spacing: 3px; font-weight: 900; }
+
+        #driver-list { flex-grow: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        
+        .driver-card { 
+            background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255,255,255,0.08);
+            padding: 18px; border-radius: 14px; margin-bottom: 15px; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .driver-card:hover { background: rgba(255,255,255,0.08); border-color: var(--gold); }
+
+        .driver-top { display: flex; justify-content: space-between; align-items: center; }
+        .driver-name { color: var(--green); font-weight: bold; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+        
+        .ping-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; opacity: 0; }
+        .ping-dot.active { animation: pulse-green 1s ease-out; }
+        @keyframes pulse-green { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(3); } }
+
+        .driver-eta { color: var(--gold); font-size: 12px; text-align: right; font-weight: 700; line-height: 1.2; }
+
+        .progress-bg { background: rgba(0,0,0,0.4); height: 8px; border-radius: 10px; margin-top: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .progress-bar { background: var(--gold); height: 100%; border-radius: 10px; width: 0%; box-shadow: 0 0 15px rgba(255,204,0,0.4); transition: width 1.5s ease; }
+
+        .status-badge { 
+            padding: 8px 16px; border-radius: 6px; font-weight: 900; font-size: 11px; background: #000; color: var(--green); 
+            border: 1px solid var(--green); text-transform: uppercase; letter-spacing: 1px;
+            margin-top: 15px; align-self: center;
+        }
+
+        .map-toggle { background: var(--gold); color: #000; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 800; cursor: pointer; font-size: 10px; text-transform: uppercase; }
     </style>
 </head>
 <body>
-
-<header>
-    <img src="logo.png" onerror="this.src='https://hopmanchris.github.io/BlingBling/logo.png'">
-</header>
-
-<div class="main-wrapper">
-    <div id="sidebar">
-        <h3>Bezorgers</h3>
-        <div id="bezorgers-lijst"></div>
+    <header onclick="resetView()"><img src="logo.png" onerror="this.src='https://hopmanchris.github.io/BlingBling/logo.png'"></header>
+    
+    <div class="main-container">
+        <div id="map"></div>
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <h2>Bezorgers</h2>
+                <button class="map-toggle" onclick="toggleMap()">Kaart Wisselen</button>
+            </div>
+            <ul id="driver-list"></ul>
+            <div class="status-badge">System Live</div>
+        </div>
     </div>
 
-    <div id="map"></div>
-</div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const hqPos = [52.22419, 5.37145];
+        const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
-<script>
-    // Kaart instellen
-    var map = L.map('map', { zoomControl: false }).setView([52.24, 5.37], 13); 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+        const map = L.map('map', { zoomControl: false }).setView(hqPos, 14);
+        darkLayer.addTo(map); // Standaard donker voor de Bling look
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+        // HQ Marker
+        L.marker(hqPos, {
+            icon: L.divIcon({
+                html: '<div style="font-size: 30px; filter: drop-shadow(0 0 8px gold);">🏠</div>',
+                className: 'hq-icon', iconSize: [30, 30], iconAnchor: [15, 15]
+            })
+        }).addTo(map);
 
-    const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
-    const channel = ably.channels.get('tracking');
-    const markers = {};
-
-    channel.subscribe('pos', (msg) => {
-        const { id, name, lat, lon } = msg.data;
-
-        // Update of maak Marker
-        if (markers[id]) {
-            markers[id].setLatLng([lat, lon]);
-        } else {
-            const icon = L.divIcon({
-                className: 'custom-marker',
-                html: name.charAt(0).toUpperCase(),
-                iconSize: [30, 30]
-            });
-            markers[id] = L.marker([lat, lon], { icon: icon }).addTo(map)
-                .bindPopup('<b>' + name + '</b>');
-
-            // Voeg toe aan zijbalk lijst
-            const lijst = document.getElementById('bezorgers-lijst');
-            const item = document.createElement('div');
-            item.className = 'bezorger-item';
-            item.innerHTML = `<div class="status-dot"></div> <span class="bezorger-naam">${name}</span>`;
-            item.onclick = () => map.setView([lat, lon], 16);
-            lijst.appendChild(item);
+        let isDark = true;
+        function toggleMap() {
+            if (!isDark) { map.removeLayer(lightLayer); darkLayer.addTo(map); isDark = true; }
+            else { map.removeLayer(darkLayer); lightLayer.addTo(map); isDark = false; }
         }
-    });
 
-    // iPhone Fix: Forceer kaart-update
-    setTimeout(() => { map.invalidateSize(); }, 500);
-</script>
+        function resetView() { map.flyTo(hqPos, 14, { duration: 2 }); }
 
+        const ably = new Ably.Realtime({ key: 'IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ' });
+        const channel = ably.channels.get('tracking');
+        let drivers = {};
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2-lat1) * Math.PI/180;
+            const dLon = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        channel.subscribe('pos', (msg) => {
+            const { name, lat, lng } = msg.data;
+            const dist = getDistance(lat, lng, hqPos[0], hqPos[1]);
+            const eta = Math.ceil(dist * 2.5);
+            const progress = Math.max(0, Math.min(100, (1 - (dist / 6)) * 100));
+
+            if (!drivers[name]) {
+                const card = document.createElement('li');
+                card.id = `card-${name}`;
+                card.className = "driver-card";
+                card.onclick = () => {
+                    map.flyTo([lat, lng], 17, { duration: 1.5 });
+                    // Op mobiel: Scroll even naar de kaart als je op een naam tikt
+                    if (window.innerWidth < 900) { window.scrollTo({top: 0, behavior: 'smooth'}); }
+                };
+                card.innerHTML = `
+                    <div class="driver-top">
+                        <span class="driver-name"><div class="ping-dot" id="ping-${name}"></div>🚗 ${name}</span>
+                        <span class="driver-eta" id="stats-${name}">${dist.toFixed(1)} km<br>${eta} min</span>
+                    </div>
+                    <div class="progress-bg"><div class="progress-bar" id="bar-${name}" style="width: ${progress}%"></div></div>
+                `;
+                document.getElementById('driver-list').appendChild(card);
+
+                drivers[name] = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: `<span style="font-size: 26px; display: block;">🚗</span><div style="background:var(--gold); color:#000; padding:2px 6px; border-radius:4px; font-weight:900; font-size:11px; border:1px solid black; white-space:nowrap; margin-top:-2px;">${name}</div>`,
+                        className: 'car-icon', iconSize: [70, 45], iconAnchor: [35, 35]
+                    })
+                }).addTo(map);
+            } else {
+                drivers[name].setLatLng([lat, lng]);
+                document.getElementById(`stats-${name}`).innerHTML = `${dist.toFixed(1)} km<br>${eta} min`;
+                document.getElementById(`bar-${name}`).style.width = `${progress}%`;
+                
+                const ping = document.getElementById(`ping-${name}`);
+                if (ping) {
+                    ping.classList.remove('active');
+                    void ping.offsetWidth;
+                    ping.classList.add('active');
+                }
+            }
+        });
+
+        // iPhone Fix: Forceer kaartherstel bij laden
+        window.onload = () => {
+            setTimeout(() => { map.invalidateSize(); }, 500);
+        };
+    </script>
 </body>
 </html>

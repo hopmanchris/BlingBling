@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlingBling Zender PRO</title>
+    <title>BlingBling Zender PRO (Self-Healing)</title>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
         body { 
@@ -12,7 +12,7 @@
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh; margin: 0; text-align: center; padding: 20px;
         }
-        .logo-container { margin-bottom: 20px; margin-top: 10px; }
+        .logo-container { margin-bottom: 20px; }
         .logo-container img { max-height: 50px; }
         
         .status-circle {
@@ -40,9 +40,8 @@
             background: #ffcc00; border: none; border-radius: 50px; 
             cursor: pointer; color: black; width: 90%; max-width: 300px;
         }
-        .stop-btn { background: #ff4444; color: white; }
+        .stop-btn { background: #ff4444 !important; color: white !important; }
 
-        /* Navigatie sectie */
         .nav-box {
             margin-top: 30px; padding: 20px; background: #1a2a3a; 
             width: 90%; max-width: 300px; border-radius: 15px;
@@ -51,21 +50,19 @@
         .nav-box h3 { margin-top: 0; font-size: 0.9rem; color: #ffcc00; text-transform: uppercase; }
         .nav-buttons { display: flex; gap: 10px; justify-content: center; }
         .nav-btn {
-            flex: 1; padding: 10px; border-radius: 8px; border: none;
+            flex: 1; padding: 12px; border-radius: 8px; border: none;
             font-size: 0.8rem; font-weight: bold; cursor: pointer;
-            text-decoration: none; color: white;
+            text-decoration: none; color: white; display: inline-block;
         }
         .google-btn { background: #4285F4; }
         .apple-btn { background: #555; }
 
-        #debug { font-size: 0.75rem; margin-top: 20px; color: #666; }
+        #debug { font-size: 0.7rem; margin-top: 20px; color: #555; }
     </style>
 </head>
 <body>
 
-    <div class="logo-container">
-        <img src="logo.png" alt="BlingBling">
-    </div>
+    <div class="logo-container"><img src="logo.png" alt="BlingBling"></div>
 
     <div class="status-circle" id="circle">
         <span id="status-text" style="font-size: 0.7rem; letter-spacing: 2px;">OFFLINE</span>
@@ -73,7 +70,8 @@
     </div>
 
     <input type="text" id="driverName" placeholder="Naam bezorger...">
-    <button id="toggleBtn" class="main-btn" onclick="toggleTracking()">START RIT</button>
+    
+    <button id="toggleBtn" class="main-btn" onclick="handleButtonClick()">START RIT</button>
 
     <div class="nav-box" id="navBox" style="display: none;">
         <h3>Snel Navigeren</h3>
@@ -84,70 +82,102 @@
         </div>
     </div>
 
-    <div id="debug">Systeem klaar voor gebruik</div>
+    <div id="debug">Systeem stand-by</div>
 
     <script>
         const ably = new Ably.Realtime('IZkpmw.1yPWMw:Aub_kDoBGOXLZejBCeTu8zxHI_s80SzZEUpqll66YCQ');
         const channel = ably.channels.get('tracking');
         
         let watchId = null;
-        let startTime = null;
         let timerInterval = null;
         let lastSendTime = 0;
         let wakeLock = null;
 
-        document.getElementById('driverName').value = localStorage.getItem('driverName') || "";
+        // Laad opgeslagen data bij opstarten
+        window.onload = () => {
+            const savedName = localStorage.getItem('driverName');
+            if (savedName) document.getElementById('driverName').value = savedName;
+            
+            // CHECK: Was er een rit bezig?
+            if (localStorage.getItem('isTracking') === 'true') {
+                console.log("Rit herstellen...");
+                startTracking();
+            }
+        };
 
-        function openNav(type) {
-            const addr = encodeURIComponent(document.getElementById('targetAddress').value);
-            if (!addr) { alert("Type eerst even een adres in!"); return; }
-            
-            let url = type === 'google' 
-                ? `https://www.google.com/maps/dir/?api=1&destination=${addr}`
-                : `http://maps.apple.com/?daddr=${addr}`;
-            
-            window.open(url, '_blank');
+        function handleButtonClick() {
+            if (watchId === null) startTracking();
+            else stopTracking();
         }
 
-        async function toggleTracking() {
-            const btn = document.getElementById('toggleBtn');
+        async function startTracking() {
             const nameInput = document.getElementById('driverName');
+            const btn = document.getElementById('toggleBtn');
             const navBox = document.getElementById('navBox');
             const circle = document.getElementById('circle');
 
-            if (watchId === null) {
-                if (!nameInput.value) { alert("Vul je naam in!"); return; }
-                localStorage.setItem('driverName', nameInput.value);
+            if (!nameInput.value) { alert("Naam invullen aub!"); return; }
+            
+            // Opslaan dat we bezig zijn
+            localStorage.setItem('driverName', nameInput.value);
+            localStorage.setItem('isTracking', 'true');
+            if (!localStorage.getItem('startTime')) localStorage.setItem('startTime', Date.now());
 
-                // Start WakeLock
-                if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
-
-                watchId = navigator.geolocation.watchPosition(pos => {
-                    const now = Date.now();
-                    if (now - lastSendTime > 5000) {
-                        channel.publish('pos', {
-                            name: nameInput.value,
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude
-                        });
-                        lastSendTime = now;
-                    }
-                    circle.classList.add('active-glow');
-                    document.getElementById('status-text').innerText = "LIVE";
-                }, null, { enableHighAccuracy: true });
-
-                btn.innerText = "STOP RIT";
-                btn.classList.add('stop-btn');
-                navBox.style.display = "block";
-                startTime = new Date();
-                timerInterval = setInterval(() => {
-                    const diff = Math.floor((new Date() - startTime) / 1000);
-                    document.getElementById('timer').innerText = 
-                        Math.floor(diff/60).toString().padStart(2,'0') + ":" + (diff%60).toString().padStart(2,'0');
-                }, 1000);
-            } else {
-                location.reload(); // Snelste manier om alles te stoppen en te resetten
+            // WakeLock aanvragen
+            if ('wakeLock' in navigator) {
+                try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
             }
+
+            watchId = navigator.geolocation.watchPosition(pos => {
+                const now = Date.now();
+                if (now - lastSendTime > 5000) { // 5-seconden regel
+                    channel.publish('pos', {
+                        name: nameInput.value,
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    });
+                    lastSendTime = now;
+                    document.getElementById('debug').innerText = "Verzonden: " + new Date().toLocaleTimeString();
+                }
+                circle.classList.add('active-glow');
+                document.getElementById('status-text').innerText = "LIVE";
+            }, err => {
+                document.getElementById('debug').innerText = "GPS Fout: " + err.message;
+            }, { enableHighAccuracy: true, maximumAge: 0 });
+
+            btn.innerText = "STOP RIT";
+            btn.classList.add('stop-btn');
+            nameInput.disabled = true;
+            navBox.style.display = "block";
+            
+            startTimer();
+        }
+
+        function stopTracking() {
+            // Alles wissen uit geheugen
+            localStorage.removeItem('isTracking');
+            localStorage.removeItem('startTime');
+            if (wakeLock) wakeLock.release();
+            location.reload(); // Harde reset
+        }
+
+        function startTimer() {
+            const start = parseInt(localStorage.getItem('startTime'));
+            timerInterval = setInterval(() => {
+                const diff = Math.floor((Date.now() - start) / 1000);
+                const mins = Math.floor(diff/60).toString().padStart(2,'0');
+                const secs = (diff%60).toString().padStart(2,'0');
+                document.getElementById('timer').innerText = mins + ":" + secs;
+            }, 1000);
+        }
+
+        function openNav(type) {
+            const addr = encodeURIComponent(document.getElementById('targetAddress').value);
+            if (!addr) { alert("Typ eerst een adres!"); return; }
+            const url = type === 'google' 
+                ? `https://www.google.com/maps/dir/?api=1&destination=${addr}`
+                : `http://maps.apple.com/?daddr=${addr}`;
+            window.open(url, '_blank');
         }
     </script>
 </body>
